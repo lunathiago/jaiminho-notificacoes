@@ -1,1 +1,37 @@
-"""Example terraform variables file - copy to terraform.tfvars and populate."""
+# Exemplo de arquivo de variáveis Terraform
+# Copie este arquivo para terraform.tfvars e ajuste os valores
+
+# Configuração Básica
+project_name = "jaiminho-notificacoes"
+environment  = "dev" # dev, staging, prod
+aws_region   = "us-east-1"
+cost_center  = "engineering"
+
+# Lambda Configuration
+lambda_runtime     = "python3.11"
+lambda_memory_size = 512
+lambda_timeout     = 60
+
+# RDS Configuration
+db_instance_class           = "db.t4g.micro"
+db_allocated_storage        = 20
+db_max_allocated_storage    = 100
+db_engine_version           = "15.5"
+db_backup_retention_period  = 7
+db_name                     = "jaiminho"
+
+# Network Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-east-1a", "us-east-1b"]
+
+# SQS Configuration
+sqs_message_retention_seconds  = 1209600 # 14 dias
+sqs_visibility_timeout_seconds = 300     # 5 minutos
+
+# EventBridge Configuration
+daily_digest_schedule = "cron(0 9 * * ? *)" # 9 AM UTC
+
+# API Gateway Configuration
+api_throttle_burst_limit = 100
+api_throttle_rate_limit  = 50
+
