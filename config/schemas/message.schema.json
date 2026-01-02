@@ -1,1 +1,142 @@
-"""JSON Schema for message data model."""
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Normalized Message",
+  "description": "Unified message schema after normalization and tenant resolution",
+  "type": "object",
+  "required": [
+    "message_id",
+    "tenant_id",
+    "user_id",
+    "sender_phone",
+    "message_type",
+    "content",
+    "timestamp",
+    "source"
+  ],
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "description": "Unique message identifier",
+      "minLength": 1
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "Verified tenant identifier",
+      "minLength": 1
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Verified user identifier (never from payload)",
+      "minLength": 1
+    },
+    "sender_phone": {
+      "type": "string",
+      "description": "Sender WhatsApp number",
+      "pattern": "^[0-9]{10,15}$"
+    },
+    "sender_name": {
+      "type": "string",
+      "description": "Sender display name"
+    },
+    "message_type": {
+      "type": "string",
+      "enum": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "document",
+        "location",
+        "contact",
+        "unknown"
+      ]
+    },
+    "content": {
+      "type": "object",
+      "description": "Message content (type-specific)",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "media_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "caption": {
+          "type": "string"
+        },
+        "mime_type": {
+          "type": "string"
+        },
+        "file_name": {
+          "type": "string"
+        }
+      }
+    },
+    "timestamp": {
+      "type": "integer",
+      "description": "Unix timestamp",
+      "minimum": 0
+    },
+    "source": {
+      "type": "object",
+      "required": ["platform", "instance_id"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": ["evolution_api", "whatsapp_business_api"]
+        },
+        "instance_id": {
+          "type": "string",
+          "description": "Verified instance ID"
+        },
+        "raw_event": {
+          "type": "object",
+          "description": "Original event for audit"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "is_group": {
+          "type": "boolean"
+        },
+        "group_id": {
+          "type": "string"
+        },
+        "from_me": {
+          "type": "boolean"
+        },
+        "forwarded": {
+          "type": "boolean"
+        },
+        "quoted_message_id": {
+          "type": "string"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "required": ["validated_at", "validation_passed"],
+      "properties": {
+        "validated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "instance_verified": {
+          "type": "boolean"
+        },
+        "tenant_resolved": {
+          "type": "boolean"
+        },
+        "phone_ownership_verified": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

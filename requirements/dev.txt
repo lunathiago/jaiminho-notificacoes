@@ -1,1 +1,29 @@
-"""Development dependencies (includes base)."""
+# Development dependencies (includes base)
+-r base.txt
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+moto>=4.2.0  # AWS service mocking
+
+# Code quality
+black>=24.1.0
+flake8>=7.0.0
+mypy>=1.8.0
+pylint>=3.0.0
+isort>=5.13.0
+
+# Type stubs
+boto3-stubs[essential]>=1.34.0
+types-requests>=2.31.0
+
+# Development tools
+ipython>=8.20.0
+ipdb>=0.13.13
+
+# Documentation
+mkdocs>=1.5.3
+mkdocs-material>=9.5.0
+

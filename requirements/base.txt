@@ -1,1 +1,33 @@
-"""Base dependencies for all environments."""
+# Base dependencies for all environments
+
+# AWS SDK
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Data validation and serialization
+pydantic>=2.5.0
+pydantic[email]>=2.5.0
+
+# HTTP client
+httpx>=0.26.0
+requests>=2.31.0
+
+# JSON schema validation
+jsonschema>=4.20.0
+
+# Database
+psycopg2-binary>=2.9.9  # PostgreSQL adapter
+sqlalchemy>=2.0.25      # ORM
+
+# Date/time handling
+python-dateutil>=2.8.2
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Logging
+structlog>=24.1.0
+
+# Utilities
+tenacity>=8.2.3  # Retry logic
+

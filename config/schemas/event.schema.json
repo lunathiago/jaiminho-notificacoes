@@ -1,1 +1,94 @@
-"""JSON Schema for incoming WhatsApp message events."""
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Evolution API Webhook Event",
+  "description": "Schema for validating incoming WhatsApp events from Evolution API",
+  "type": "object",
+  "required": ["instance", "event", "data"],
+  "properties": {
+    "instance": {
+      "type": "string",
+      "description": "Evolution API instance identifier",
+      "minLength": 1
+    },
+    "event": {
+      "type": "string",
+      "description": "Event type from Evolution API",
+      "enum": [
+        "messages.upsert",
+        "messages.update",
+        "message.revoked",
+        "messages.delete",
+        "connection.update"
+      ]
+    },
+    "data": {
+      "type": "object",
+      "description": "Event payload data",
+      "required": ["key", "message"],
+      "properties": {
+        "key": {
+          "type": "object",
+          "required": ["remoteJid", "fromMe", "id"],
+          "properties": {
+            "remoteJid": {
+              "type": "string",
+              "pattern": "^[0-9]+@(s.whatsapp.net|g.us)$"
+            },
+            "fromMe": {
+              "type": "boolean"
+            },
+            "id": {
+              "type": "string"
+            },
+            "participant": {
+              "type": "string",
+              "pattern": "^[0-9]+@s.whatsapp.net$"
+            }
+          }
+        },
+        "message": {
+          "type": "object",
+          "properties": {
+            "conversation": {
+              "type": "string"
+            },
+            "extendedTextMessage": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                }
+              }
+            },
+            "imageMessage": {
+              "type": "object"
+            },
+            "videoMessage": {
+              "type": "object"
+            },
+            "documentMessage": {
+              "type": "object"
+            },
+            "audioMessage": {
+              "type": "object"
+            }
+          }
+        },
+        "messageTimestamp": {
+          "type": ["number", "string"]
+        },
+        "pushName": {
+          "type": "string"
+        }
+      }
+    },
+    "server_url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "apikey": {
+      "type": "string",
+      "description": "API key (will be validated separately)"
+    }
+  }
+}
