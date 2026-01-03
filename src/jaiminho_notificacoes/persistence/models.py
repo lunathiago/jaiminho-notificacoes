@@ -136,6 +136,12 @@ class NormalizedMessage(BaseModel):
     source: MessageSource
     metadata: MessageMetadata = Field(default_factory=MessageMetadata)
     security: MessageSecurity
+    
+    # Classification fields (added by Classification Agent)
+    classification_category: Optional[str] = None
+    classification_summary: Optional[str] = None
+    classification_routing: Optional[str] = None
+    classification_confidence: Optional[float] = None
 
     class Config:
         use_enum_values = True
