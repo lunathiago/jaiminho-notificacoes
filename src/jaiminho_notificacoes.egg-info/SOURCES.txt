@@ -12,7 +12,7 @@ src/jaiminho_notificacoes/core/config.py
 src/jaiminho_notificacoes/core/logger.py
 src/jaiminho_notificacoes/core/tenant.py
 src/jaiminho_notificacoes/ingestion/__init__.py
-src/jaiminho_notificacoes/ingestion/evolution_api.py
+src/jaiminho_notificacoes/ingestion/wapi.py
 src/jaiminho_notificacoes/ingestion/normalizer.py
 src/jaiminho_notificacoes/lambda_handlers/__init__.py
 src/jaiminho_notificacoes/lambda_handlers/generate_digest.py

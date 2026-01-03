@@ -18,13 +18,6 @@ class MessageType(str, Enum):
     CONTACT = "contact"
     UNKNOWN = "unknown"
 
-
-class MessageSource(str, Enum):
-    """Message source platforms."""
-    WAPI = "wapi"
-    WHATSAPP_BUSINESS_API = "whatsapp_business_api"
-
-
 class ProcessingDecision(str, Enum):
     """Final processing decision for a message."""
     IMMEDIATE = "immediate"  # Send via SendPulse immediately
