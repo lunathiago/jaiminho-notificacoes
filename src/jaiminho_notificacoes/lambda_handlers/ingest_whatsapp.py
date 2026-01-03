@@ -34,7 +34,7 @@ DYNAMODB_MESSAGES_TABLE = os.getenv('DYNAMODB_MESSAGES_TABLE')
 
 
 class WebhookSecurityValidator:
-    """Validates webhook authenticity and security."""
+    """Validates webhook authenticity and security for W-API only."""
     
     def __init__(self):
         self.middleware = TenantIsolationMiddleware()
@@ -44,7 +44,12 @@ class WebhookSecurityValidator:
         event: Dict[str, Any]
     ) -> tuple[Optional[WAPIWebhookEvent], Optional[str]]:
         """
-        Validate incoming webhook request.
+        Validate incoming W-API webhook request.
+        
+        Security checks:
+        - Validates JSON structure
+        - Enforces W-API schema (instance, event, data required)
+        - Rejects non-W-API payloads
         
         Returns:
             (validated_event, error_message) tuple
@@ -52,6 +57,11 @@ class WebhookSecurityValidator:
         # Extract body
         body = self._extract_body(event)
         if not body:
+            logger.security_event(
+                event_type='invalid_request',
+                severity='medium',
+                message='Empty or invalid request body'
+            )
             return None, "Empty or invalid request body"
         
         # Parse JSON
@@ -60,19 +70,23 @@ class WebhookSecurityValidator:
         except json.JSONDecodeError as e:
             logger.security_validation_failed(
                 reason='Invalid JSON payload',
-                details={'error': str(e)}
+                details={'error': str(e), 'error_type': 'json_decode'}
             )
             return None, "Invalid JSON format"
         
-        # Validate against schema
+        # Validate against W-API schema
         try:
             webhook_event = WAPIWebhookEvent(**payload)
         except ValidationError as e:
             logger.security_validation_failed(
-                reason='Schema validation failed',
-                details={'errors': e.errors(), 'payload_keys': list(payload.keys())}
+                reason='W-API schema validation failed',
+                details={
+                    'errors': e.errors(),
+                    'payload_keys': list(payload.keys()),
+                    'validation_error': 'payload does not conform to W-API schema'
+                }
             )
-            return None, f"Schema validation failed: {e}"
+            return None, "Invalid W-API payload format"
         
         return webhook_event, None
     
@@ -104,19 +118,27 @@ class MessageIngestionHandler:
         context: Any
     ) -> Dict[str, Any]:
         """
-        Main webhook processing logic.
+        Main W-API webhook processing logic.
         
-        Security flow:
-        1. Validate webhook format
-        2. Validate instance_id authenticity
-        3. Resolve tenant_id and user_id (INTERNAL ONLY)
-        4. Validate phone ownership
-        5. Detect cross-tenant attempts
-        6. Normalize message
+        ✅ W-API ONLY - No Evolution API support
+        
+        Security validation pipeline (in order):
+        1. Validate webhook structure (W-API schema)
+        2. Validate wapi_instance_id authenticity (DynamoDB lookup)
+        3. Resolve tenant_id and user_id INTERNALLY (never from payload)
+        4. Validate phone ownership (sender phone matches instance)
+        5. Detect cross-tenant access attempts
+        6. Normalize message to unified schema
         7. Forward to processing queue
         
+        Security guarantees:
+        ✓ Unknown or inactive wapi_instance_id → 403 Forbidden
+        ✓ Sender phone not owned by instance → 403 Forbidden
+        ✓ Cross-tenant attempt detected → 403 Forbidden
+        ✓ All rejections logged and audited
+        
         Args:
-            event: Lambda event (API Gateway format)
+            event: Lambda event (API Gateway HTTP API format)
             context: Lambda context
             
         Returns:
@@ -144,47 +166,63 @@ class MessageIngestionHandler:
                 )
                 return self._success_response(message="Event ignored")
             
-            # Extract instance and API key
-            instance_id = webhook_event.instance
+            # Extract W-API instance identifier and API key
+            wapi_instance_id = webhook_event.instance
             api_key = webhook_event.apikey
+            sender_remote_jid = webhook_event.data.key.remoteJid
             
             logger.info(
-                f"Processing event: {webhook_event.event}",
-                instance_id=instance_id,
-                event_type=webhook_event.event
+                f"Processing W-API event: {webhook_event.event}",
+                instance_id=wapi_instance_id,
+                event_type=webhook_event.event,
+                sender=sender_remote_jid
             )
             
-            # Step 2-5: Complete security validation
+            # Step 2-5: Complete W-API security validation pipeline
+            # Validates: instance_id authenticity, API key, status, phone ownership, cross-tenant attempts
             tenant_context, validation_errors = await self.middleware.validate_and_resolve(
-                instance_id=instance_id,
+                instance_id=wapi_instance_id,
                 api_key=api_key,
-                sender_phone=webhook_event.data.key.remoteJid,
+                sender_phone=sender_remote_jid,
                 payload=webhook_event.dict()
             )
             
             if validation_errors or not tenant_context:
+                # Audit log all rejections with detailed context
                 logger.security_validation_failed(
-                    reason='Tenant validation failed',
-                    instance_id=instance_id,
-                    details={'errors': validation_errors}
+                    reason='W-API instance validation failed - webhook rejected',
+                    instance_id=wapi_instance_id,
+                    details={
+                        'errors': validation_errors,
+                        'sender_phone': sender_remote_jid,
+                        'validation_failures': list(validation_errors.keys()) if validation_errors else []
+                    }
                 )
                 return self._error_response(
                     status_code=403,
-                    message="Unauthorized: " + ", ".join(validation_errors.values())
+                    message="Unauthorized: Invalid or inactive W-API instance"
                 )
             
             # Set tenant context for all subsequent logs
+            # user_id has been verified and resolved internally - not from payload
             logger.set_context(
                 tenant_id=tenant_context.tenant_id,
                 user_id=tenant_context.user_id,
-                instance_id=instance_id
+                instance_id=wapi_instance_id
+            )
+            
+            logger.info(
+                f"W-API instance validated successfully - user_id resolved internally",
+                user_id=tenant_context.user_id,
+                tenant_id=tenant_context.tenant_id
             )
             
             # Step 6: Normalize message
+            # All security validations passed; instance and phone verified
             validation_status = {
-                'instance_verified': True,
-                'tenant_resolved': True,
-                'phone_verified': True
+                'instance_verified': True,       # Verified via resolve_from_instance
+                'tenant_resolved': True,         # Resolved from instance mapping
+                'phone_verified': True           # Verified via validate_phone_ownership
             }
             
             normalized_message = self.normalizer.normalize(
@@ -210,12 +248,14 @@ class MessageIngestionHandler:
                     message="Failed to queue message"
                 )
             
-            # Log successful processing
+            # Log successful processing with W-API source metadata
             logger.message_processed(
                 message_id=normalized_message.message_id,
                 tenant_id=tenant_context.tenant_id,
                 user_id=tenant_context.user_id,
-                message_type=normalized_message.message_type.value
+                message_type=normalized_message.message_type.value,
+                source='wapi',
+                wapi_instance_id=wapi_instance_id
             )
             
             return self._success_response(
