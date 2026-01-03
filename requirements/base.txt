@@ -31,3 +31,7 @@ structlog>=24.1.0
 # Utilities
 tenacity>=8.2.3  # Retry logic
 
+# LLM and Agent Framework
+langchain>=0.1.0
+langchain-openai>=0.0.11
+langgraph>=0.1.0

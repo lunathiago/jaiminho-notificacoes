@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from pydantic import BaseModel, Field, validator
 
 
@@ -23,6 +23,13 @@ class MessageSource(str, Enum):
     """Message source platforms."""
     EVOLUTION_API = "evolution_api"
     WHATSAPP_BUSINESS_API = "whatsapp_business_api"
+
+
+class ProcessingDecision(str, Enum):
+    """Final processing decision for a message."""
+    IMMEDIATE = "immediate"  # Send via SendPulse immediately
+    DIGEST = "digest"        # Add to daily digest
+    SPAM = "spam"            # Filter out as spam
 
 
 # Pydantic Models for Validation
@@ -185,3 +192,16 @@ class SecurityAuditLog:
     details: Dict[str, Any]
     timestamp: datetime = field(default_factory=datetime.utcnow)
 
+
+@dataclass
+class ProcessingResult:
+    """Result of message processing through orchestration."""
+    message_id: str
+    tenant_id: str
+    user_id: str
+    decision: ProcessingDecision
+    rule_engine_decision: Optional[str]  # urgent, not_urgent, undecided
+    rule_confidence: float
+    llm_used: bool
+    audit_trail: List[Dict[str, Any]]
+    processed_at: str

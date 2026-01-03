@@ -40,87 +40,176 @@ class RuleMatch:
 
 
 class KeywordMatcher:
-    """Efficient keyword and pattern matching."""
+    """Efficient keyword and pattern matching with multi-language support."""
     
     def __init__(self):
-        # Financial keywords (Portuguese + English)
+        # Financial keywords (PT-BR + EN + ES)
         self.financial_keywords = {
-            # Banking
-            'banco', 'bank', 'conta', 'account', 'saldo', 'balance',
-            'transferência', 'transfer', 'pix', 'ted', 'doc',
-            'cartão', 'card', 'crédito', 'credit', 'débito', 'debit',
-            'fatura', 'invoice', 'boleto', 'pagamento', 'payment',
+            # Banking - Portuguese
+            'banco', 'conta', 'saldo', 'transferência', 'pix', 'ted', 'doc',
+            'cartão', 'crédito', 'débito', 'fatura', 'boleto', 'pagamento',
+            # Banking - English
+            'bank', 'account', 'balance', 'transfer', 'card', 'credit', 'debit',
+            'invoice', 'payment', 'banking',
+            # Banking - Spanish
+            'banco', 'cuenta', 'saldo', 'transferencia', 'tarjeta', 'crédito',
+            'débito', 'factura', 'pago', 'pagos',
             
-            # Transactions
-            'transação', 'transaction', 'compra', 'purchase',
-            'cobrança', 'charge', 'estorno', 'refund',
-            'aprovado', 'approved', 'negado', 'denied',
-            'pendente', 'pending',
+            # Transactions - Portuguese
+            'transação', 'compra', 'cobrança', 'estorno', 'aprovado', 'negado',
+            'pendente', 'processando',
+            # Transactions - English
+            'transaction', 'purchase', 'charge', 'refund', 'approved', 'denied',
+            'pending', 'processing',
+            # Transactions - Spanish
+            'transacción', 'compra', 'cobro', 'devolución', 'aprobado', 'negado',
+            'pendiente', 'procesando',
             
             # Amounts and currency
-            'r$', 'brl', 'usd', 'euro', '€', '$',
+            'r$', 'brl', 'usd', 'euro', '€', '$', '¥', '£',
+            # Spanish currency
+            'mxn', 'ars', 'clp', 'cop', 'eur',
             
-            # Fraud and security
-            'fraude', 'fraud', 'suspeito', 'suspicious',
-            'bloqueio', 'blocked', 'bloqueado',
-            'tentativa', 'attempt', 'acesso não autorizado',
-            'unauthorized access',
+            # Fraud and security - Portuguese
+            'fraude', 'suspeito', 'bloqueio', 'bloqueado', 'tentativa',
+            'acesso não autorizado', 'roubo', 'furto',
+            # Fraud and security - English
+            'fraud', 'suspicious', 'blocked', 'attempt', 'unauthorized access',
+            'theft', 'theft attempt',
+            # Fraud and security - Spanish
+            'fraude', 'sospechoso', 'bloqueado', 'intento', 'acceso no autorizado',
+            'robo', 'hurto',
         }
         
-        # Security keywords
+        # Security keywords (PT-BR + EN + ES)
         self.security_keywords = {
-            'senha', 'password', 'token', 'código', 'code',
-            'autenticação', 'authentication', '2fa', 'otp',
-            'verificação', 'verification', 'verificar', 'verify',
-            'confirmar', 'confirm', 'confirmação', 'confirmation',
-            'alerta', 'alert', 'aviso', 'warning',
-            'emergência', 'emergency', 'urgente', 'urgent',
-            'crítico', 'critical', 'importante', 'important',
-            'atenção', 'attention', 'ação requerida', 'action required',
-            'expira', 'expires', 'expiração', 'expiration',
+            # Authentication - Portuguese
+            'senha', 'código', 'autenticação', 'verificação', 'verificar',
+            'confirmar', 'confirmação', 'token', '2fa', 'otp',
+            # Authentication - English
+            'password', 'code', 'authentication', 'verification', 'verify',
+            'confirm', 'confirmation', 'token', '2fa', 'otp',
+            # Authentication - Spanish
+            'contraseña', 'código', 'autenticación', 'verificación', 'verificar',
+            'confirmar', 'confirmación', 'token', '2fa',
+            
+            # Alerts - Portuguese (specific, not generic)
+            'alerta', 'aviso', 'emergência', 'urgente', 'crítico',
+            'atenção', 'ação requerida', 'ação necessária', 'risco',
+            # Alerts - English (specific, not generic)
+            'alert', 'warning', 'emergency', 'urgent', 'critical',
+            'attention', 'action required', 'risk', 'immediately',
+            # Alerts - Spanish (specific, not generic)
+            'alerta', 'advertencia', 'emergencia', 'urgente', 'crítico',
+            'atención', 'acción requerida', 'riesgo',
+            
+            # Expiration - Portuguese (only specific keywords, not generic "válido")
+            'expira', 'expiração', 'prazo', 'prazo limite',
+            # Expiration - English
+            'expires', 'expiration', 'deadline', 'time limit',
+            # Expiration - Spanish
+            'expira', 'expiración', 'plazo', 'límite de tiempo',
         }
         
-        # Marketing/Newsletter keywords
+        # Marketing/Newsletter keywords (PT-BR + EN + ES)
         self.marketing_keywords = {
-            'promoção', 'promotion', 'oferta', 'offer', 'desconto', 'discount',
-            'novidade', 'news', 'lançamento', 'launch', 'newsletter',
-            'campanha', 'campaign', 'anúncio', 'advertisement',
-            'aproveite', 'take advantage', 'não perca', "don't miss",
-            'black friday', 'cyber monday', 'liquidação', 'sale',
-            'cupom', 'coupon', 'voucher', 'grátis', 'free',
-            'ganhe', 'win', 'sorteio', 'raffle', 'concurso', 'contest',
-            'cancelar inscrição', 'unsubscribe', 'sair da lista',
+            # Promotions - Portuguese (strong marketing signals)
+            'promoção', 'oferta', 'desconto', 'newsletter',
+            'campanha', 'anúncio', 'não perca', 'black friday',
+            'cyber monday', 'liquidação', 'cupom', 'voucher', 'grátis', 'ganhe',
+            'sorteio', 'concurso', 'cancelar inscrição', 'sair da lista',
+            # Promotions - English
+            'promotion', 'offer', 'discount', 'newsletter',
+            'campaign', 'advertisement', "don't miss", 'black friday',
+            'cyber monday', 'sale', 'coupon', 'voucher', 'free', 'win', 'raffle',
+            'contest', 'unsubscribe', 'leave list',
+            # Promotions - Spanish
+            'promoción', 'oferta', 'descuento', 'boletín',
+            'campaña', 'anuncio', 'no pierda', 'viernes negro',
+            'cyber lunes', 'liquidación', 'cupón', 'bono', 'gratis', 'gane',
+            'sorteo', 'concurso', 'cancelar suscripción', 'salir de la lista',
+            
+            # Engagement - Portuguese (specific to newsletters/marketing)
+            'clique aqui', 'saiba mais', 'conheça', 'exclusivo', 'limitado',
+            'apenas hoje', 'enquanto durar', 'acesse agora',
+            # Engagement - English
+            'click here', 'learn more', 'exclusive', 'limited',
+            'today only', 'while stocks last', 'access now',
+            # Engagement - Spanish
+            'haz clic aquí', 'aprende más', 'exclusivo', 'limitado',
+            'solo hoy', 'mientras exista', 'accede ahora',
         }
         
         # Compile regex patterns for better performance
         self._compile_patterns()
     
     def _compile_patterns(self):
-        """Compile regex patterns for efficient matching."""
-        # Financial patterns
+        """Compile regex patterns for efficient matching (multi-language support)."""
+        # Financial patterns (PT-BR, EN, ES)
         self.financial_patterns: List[Pattern] = [
-            re.compile(r'R\$\s*[\d.,]+', re.IGNORECASE),  # Currency amounts
-            re.compile(r'\b\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b'),  # Card numbers
+            # Currency amounts: R$, $, €, £, ¥, etc
+            re.compile(r'[R$€£¥¢₹₽]\s*[\d.,]+', re.IGNORECASE),
+            re.compile(r'[\d.,]+\s*(?:reais|dólares|euros|pesos|euros)', re.IGNORECASE),
+            # Card numbers (generic pattern)
+            re.compile(r'\b\d{4}\s*\d{4}\s*\d{4}\s*\d{4}\b'),
+            # PIX, transferencia, pago - PT-BR
             re.compile(r'\bPIX\b', re.IGNORECASE),
-            re.compile(r'\b(?:transferência|pagamento)\s+(?:de|no valor)', re.IGNORECASE),
-            re.compile(r'\b(?:fatura|boleto)\s+vence', re.IGNORECASE),
+            re.compile(r'\b(?:transferência|transfer|pago|pagamento)\s+(?:de|no valor|de\s*r\$)', re.IGNORECASE),
+            re.compile(r'\b(?:fatura|boleto|factura)\s+(?:vence|vencida)', re.IGNORECASE),
+            # EN patterns
+            re.compile(r'\b(?:transfer|payment|invoice)\s+(?:of|in|amount)', re.IGNORECASE),
+            re.compile(r'\b(?:bill|receipt|balance)\s+(?:due|updated)', re.IGNORECASE),
+            # ES patterns
+            re.compile(r'\b(?:transferencia|pago|factura)\s+(?:de|en|cantidad)', re.IGNORECASE),
+            re.compile(r'\b(?:recibo|saldo|cobro)\s+(?:vencido|actualizado)', re.IGNORECASE),
         ]
         
-        # Security patterns
+        # Security patterns (PT-BR, EN, ES)
         self.security_patterns: List[Pattern] = [
-            re.compile(r'\b\d{4,6}\b'),  # Numeric codes (OTP)
-            re.compile(r'\b[A-Z0-9]{6,}\b'),  # Token-like strings
-            re.compile(r'(?:senha|token|código)[:=\s]+\w+', re.IGNORECASE),
-            re.compile(r'\b(?:expira|válido)\s+(?:em|por|até)', re.IGNORECASE),
-            re.compile(r'\b(?:confirme|verifique)\s+(?:sua|seu|a|o)', re.IGNORECASE),
+            # Numeric codes (OTP)
+            re.compile(r'\b\d{4,8}\b'),
+            # Token-like strings
+            re.compile(r'\b[A-Z0-9]{6,}\b'),
+            # Password/Token: X = Y pattern - PT-BR
+            re.compile(r'(?:senha|código|token|pin)[:=\s]*[\'"]?\w+[\'"]?', re.IGNORECASE),
+            # Password/Token pattern - EN
+            re.compile(r'(?:password|code|token|pin)[:=\s]*[\'"]?\w+[\'"]?', re.IGNORECASE),
+            # Password/Token pattern - ES
+            re.compile(r'(?:contraseña|código|token|pin)[:=\s]*[\'"]?\w+[\'"]?', re.IGNORECASE),
+            # Expiration patterns - PT-BR (only expira/vence, not generic "válido até")
+            re.compile(r'\b(?:expira|vence)\s+(?:em|por|até|dentro)', re.IGNORECASE),
+            # Expiration patterns - EN
+            re.compile(r'\b(?:expires)\s+(?:in|by|on)', re.IGNORECASE),
+            # Expiration patterns - ES
+            re.compile(r'\b(?:expira|vence)\s+(?:en|por|hasta|dentro)', re.IGNORECASE),
+            # Confirmation patterns - PT-BR (only for action verbs like "confirme sua senha")
+            re.compile(r'\b(?:confirme|verifique|acesse)\s+(?:sua|seu|a|o)\s+(?:senha|código|conta)', re.IGNORECASE),
+            # Confirmation patterns - EN
+            re.compile(r'\b(?:confirm|verify|access)\s+(?:your|the)\s+(?:password|code|account)', re.IGNORECASE),
+            # Confirmation patterns - ES
+            re.compile(r'\b(?:confirma|verifica|accede)\s+(?:su|tu|el|la)\s+(?:contrase\u00f1a|c\u00f3digo|cuenta)', re.IGNORECASE),
         ]
         
-        # Marketing patterns
+        # Marketing patterns (PT-BR, EN, ES)
         self.marketing_patterns: List[Pattern] = [
-            re.compile(r'\b\d+%\s*(?:OFF|DESCONTO)', re.IGNORECASE),
-            re.compile(r'\b(?:até|com)\s+\d+%', re.IGNORECASE),
-            re.compile(r'\b(?:aproveite|não perca)', re.IGNORECASE),
+            # Percentage discounts: 50% OFF, 50% DESCONTO, 50% DE DESCUENTO
+            re.compile(r'\b\d+%\s*(?:OFF|DESC|DESCONTO|DESCUENTO|DE\s+DESC)', re.IGNORECASE),
+            # "Up to 50%" pattern - PT-BR: "até 50%"
+            re.compile(r'\b(?:até|por|com)\s+\d+%', re.IGNORECASE),
+            # "Up to" patterns - EN
+            re.compile(r'\b(?:up\s+to|save|get)\s+\d+%', re.IGNORECASE),
+            # "Up to" patterns - ES
+            re.compile(r'\b(?:hasta|ahorra|consigue)\s+\d+%', re.IGNORECASE),
+            # Buy X get Y pattern - PT-BR
             re.compile(r'\bcompre\s+\d+\s+leve\s+\d+\b', re.IGNORECASE),
+            # Buy X get Y pattern - EN
+            re.compile(r'\bbuy\s+\d+\s+get\s+\d+\b', re.IGNORECASE),
+            # Buy X get Y pattern - ES
+            re.compile(r'\bcompra\s+\d+\s+lleva\s+\d+\b', re.IGNORECASE),
+            # "Don't miss" / "Não perca" / "No pierdas"
+            re.compile(r'\b(?:não perca|aproveite|don\'t miss|take advantage|no pierda|aprovecha)\b', re.IGNORECASE),
+            # Limited time patterns
+            re.compile(r'\b(?:apenas\s+hoje|today\s+only|solo\s+hoy|por\s+tempo|while\s+stocks|mientras)\b', re.IGNORECASE),
         ]
     
     def match_keywords(
@@ -178,9 +267,10 @@ class UrgencyRuleEngine:
         
         Rules are evaluated in priority order:
         1. Group messages (not urgent)
-        2. Financial/Security (urgent)
-        3. Marketing (not urgent)
-        4. Unknown (undecided - needs LLM)
+        2. Security keywords (urgent - highest priority)
+        3. Financial keywords (urgent)
+        4. Marketing keywords (not urgent)
+        5. Unknown (undecided - needs LLM)
         
         Args:
             message: Normalized message to evaluate
@@ -212,20 +302,20 @@ class UrgencyRuleEngine:
                 reasoning="Group messages are not urgent by default"
             )
         
-        # Rule 2: Financial keywords = urgent
+        # Rule 2: Security keywords = urgent (check FIRST, highest priority)
+        security_match = self._check_security(text)
+        if security_match:
+            return security_match
+        
+        # Rule 3: Financial keywords = urgent
         financial_match = self._check_financial(text)
         if financial_match:
             return financial_match
         
-        # Rule 3: Marketing keywords = not urgent (check before security to avoid false positives)
+        # Rule 4: Marketing keywords = not urgent
         marketing_match = self._check_marketing(text)
         if marketing_match:
             return marketing_match
-        
-        # Rule 4: Security keywords = urgent
-        security_match = self._check_security(text)
-        if security_match:
-            return security_match
         
         # Rule 5: Empty or media-only messages
         if not text or len(text.strip()) < 10:
