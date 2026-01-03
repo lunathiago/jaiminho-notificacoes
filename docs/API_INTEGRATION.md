@@ -1,1 +1,1 @@
-"""Evolution API and SendPulse integration guide."""
+"""W-API and SendPulse integration guide."""

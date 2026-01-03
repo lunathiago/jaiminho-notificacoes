@@ -33,7 +33,7 @@ def base_message():
         content=MessageContent(text="Test message"),
         timestamp=int(datetime.utcnow().timestamp()),
         source=MessageSourceModel(
-            platform="evolution_api",
+            platform="wapi",
             instance_id="test-instance"
         ),
         metadata=MessageMetadata(is_group=False, from_me=False),

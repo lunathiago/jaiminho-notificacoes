@@ -8,7 +8,7 @@ Esta configuração Terraform provisiona toda a infraestrutura AWS necessária p
 
 ### Recursos Provisionados
 
-- **🌐 API Gateway HTTP API**: Endpoints para webhooks da Evolution API e feedback
+- **🌐 API Gateway HTTP API**: Endpoints para webhooks da W-API e feedback
 - **⚡ AWS Lambda (Python 3.11)**:
   - `jaiminho_message_orchestrator`: Processa mensagens e roteia baseado em urgência
   - `jaiminho_daily_digest`: Gera e envia resumos diários
@@ -155,10 +155,10 @@ Após o deploy bem-sucedido, execute as seguintes etapas:
 ### 1. Atualizar Secrets Manager
 
 ```bash
-# Evolution API
+# W-API
 aws secretsmanager put-secret-value \
-  --secret-id $(terraform output -raw secret_evolution_api_arn) \
-  --secret-string '{"api_key":"YOUR_KEY","api_url":"https://api.evolution.example.com","instance_id":"YOUR_INSTANCE"}'
+  --secret-id $(terraform output -raw secret_wapi_arn) \
+  --secret-string '{"api_key":"YOUR_KEY","api_url":"https://api.wapi.example.com","instance_id":"YOUR_INSTANCE"}'
 
 # SendPulse
 aws secretsmanager put-secret-value \
@@ -195,7 +195,7 @@ aws lambda update-function-code \
 python ../scripts/migrate_data.py
 ```
 
-### 4. Configurar Webhook na Evolution API
+### 4. Configurar Webhook na W-API
 
 Use o endpoint do webhook retornado por `terraform output webhook_endpoint`:
 

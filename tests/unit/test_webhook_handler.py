@@ -11,7 +11,7 @@ from jaiminho_notificacoes.lambda_handlers.ingest_whatsapp import (
 )
 from jaiminho_notificacoes.core.tenant import TenantContext
 from jaiminho_notificacoes.persistence.models import (
-    EvolutionWebhookEvent,
+    WAPIWebhookEvent,
     NormalizedMessage,
     MessageType
 )
@@ -19,7 +19,7 @@ from jaiminho_notificacoes.persistence.models import (
 
 @pytest.fixture
 def valid_webhook_payload():
-    """Valid Evolution API webhook payload."""
+    """Valid W-API webhook payload."""
     return {
         "instance": "test-instance-123",
         "event": "messages.upsert",
@@ -85,7 +85,7 @@ class TestWebhookSecurityValidator:
         
         assert event is not None
         assert error is None
-        assert isinstance(event, EvolutionWebhookEvent)
+        assert isinstance(event, WAPIWebhookEvent)
         assert event.instance == "test-instance-123"
     
     @pytest.mark.asyncio

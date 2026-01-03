@@ -38,7 +38,7 @@ resource "aws_lambda_function" "message_orchestrator" {
     variables = {
       ENVIRONMENT            = var.environment
       DB_SECRET_ARN          = aws_secretsmanager_secret.db_master_password.arn
-      EVOLUTION_API_SECRET   = aws_secretsmanager_secret.evolution_api.arn
+      WAPI_SECRET   = aws_secretsmanager_secret.wapi.arn
       APP_CONFIG_SECRET      = aws_secretsmanager_secret.app_config.arn
       SQS_QUEUE_URL          = aws_sqs_queue.message_buffer.url
       DYNAMODB_MESSAGES_TABLE = aws_dynamodb_table.messages.name

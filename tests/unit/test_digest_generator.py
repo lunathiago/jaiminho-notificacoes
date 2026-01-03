@@ -38,7 +38,7 @@ def sample_messages():
         message_type=MessageType.TEXT,
         content=MessageContent(text="Reunião amanhã às 10h"),
         timestamp=base_time,
-        source=MessageSource(platform="evolution_api", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id="inst_1"),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
@@ -63,7 +63,7 @@ def sample_messages():
         message_type=MessageType.TEXT,
         content=MessageContent(text="Seu pedido foi enviado"),
         timestamp=base_time + 3600,
-        source=MessageSource(platform="evolution_api", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id="inst_1"),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
@@ -87,7 +87,7 @@ def sample_messages():
         message_type=MessageType.TEXT,
         content=MessageContent(text="Tudo bem filho?"),
         timestamp=base_time + 7200,
-        source=MessageSource(platform="evolution_api", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id="inst_1"),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),

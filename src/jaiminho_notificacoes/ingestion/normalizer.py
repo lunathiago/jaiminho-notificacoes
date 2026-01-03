@@ -1,4 +1,4 @@
-"""Message normalizer - convert Evolution API events to unified schema."""
+"""Message normalizer - convert W-API events to unified schema."""
 
 from datetime import datetime
 from typing import Dict, Optional
@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from ..core.logger import get_logger
 from ..core.tenant import TenantContext
 from ..persistence.models import (
-    EvolutionWebhookEvent,
+    WAPIWebhookEvent,
     MessageType,
     MessageContent,
     MessageMetadata,
@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 
 
 class MessageNormalizer:
-    """Normalize Evolution API messages to unified schema."""
+    """Normalize W-API messages to unified schema."""
     
     @staticmethod
     def _extract_message_text(message_data: Dict) -> Optional[str]:
@@ -57,7 +57,7 @@ class MessageNormalizer:
     
     @staticmethod
     def _detect_message_type(message_data: Dict) -> MessageType:
-        """Detect message type from Evolution API format."""
+        """Detect message type from W-API format."""
         if 'conversation' in message_data or 'extendedTextMessage' in message_data:
             return MessageType.TEXT
         elif 'imageMessage' in message_data:
@@ -85,7 +85,7 @@ class MessageNormalizer:
             if isinstance(img, dict):
                 media_info['mime_type'] = img.get('mimetype')
                 media_info['caption'] = img.get('caption')
-                # URL would be generated/retrieved from Evolution API
+                # URL would be generated/retrieved from W-API
                 media_info['media_url'] = img.get('url')
         
         elif message_type == MessageType.VIDEO and 'videoMessage' in message_data:
@@ -128,15 +128,15 @@ class MessageNormalizer:
     
     @staticmethod
     def normalize(
-        event: EvolutionWebhookEvent,
+        event: WAPIWebhookEvent,
         tenant_context: TenantContext,
         validation_status: Dict[str, bool]
     ) -> Optional[NormalizedMessage]:
         """
-        Normalize Evolution API event to unified message format.
+        Normalize W-API event to unified message format.
         
         Args:
-            event: Validated Evolution API webhook event
+            event: Validated W-API webhook event
             tenant_context: Verified tenant context
             validation_status: Security validation results
             
@@ -194,7 +194,7 @@ class MessageNormalizer:
             
             # Source info
             source = MessageSourceModel(
-                platform='evolution_api',
+                platform='wapi',
                 instance_id=event.instance,
                 raw_event=event.dict()
             )

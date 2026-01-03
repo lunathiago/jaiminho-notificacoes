@@ -1,18 +1,18 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Evolution API Webhook Event",
-  "description": "Schema for validating incoming WhatsApp events from Evolution API",
+  "title": "W-API Webhook Event",
+  "description": "Schema for validating incoming WhatsApp events from W-API",
   "type": "object",
   "required": ["instance", "event", "data"],
   "properties": {
     "instance": {
       "type": "string",
-      "description": "Evolution API instance identifier",
+      "description": "W-API instance identifier",
       "minLength": 1
     },
     "event": {
       "type": "string",
-      "description": "Event type from Evolution API",
+      "description": "Event type from W-API",
       "enum": [
         "messages.upsert",
         "messages.update",

@@ -131,7 +131,7 @@ resource "aws_iam_role_policy" "lambda_orchestrator_secrets" {
         ]
         Resource = [
           aws_secretsmanager_secret.db_master_password.arn,
-          aws_secretsmanager_secret.evolution_api.arn,
+          aws_secretsmanager_secret.wapi.arn,
           aws_secretsmanager_secret.app_config.arn
         ]
       }

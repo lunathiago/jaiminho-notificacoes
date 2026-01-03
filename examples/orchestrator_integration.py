@@ -234,7 +234,7 @@ if __name__ == "__main__":
         content=MessageContent(text="PIX de R$ 500,00 recebido com sucesso"),
         timestamp=int(datetime.now().timestamp()),
         source=MessageSource(
-            platform="evolution_api",
+            platform="wapi",
             instance_id="instance-demo"
         ),
         metadata=MessageMetadata(is_group=False, from_me=False),

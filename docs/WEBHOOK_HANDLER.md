@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Handler principal para ingestão de mensagens WhatsApp da Evolution API com **validação de segurança rigorosa** e **isolamento de tenants**.
+Handler principal para ingestão de mensagens WhatsApp da W-API com **validação de segurança rigorosa** e **isolamento de tenants**.
 
 ## 🔒 Segurança
 
@@ -11,7 +11,7 @@ Handler principal para ingestão de mensagens WhatsApp da Evolution API com **va
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    1. Webhook Recebido                           │
-│                   (Evolution API)                                │
+│                   (W-API)                                │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
@@ -96,7 +96,7 @@ Handler principal para ingestão de mensagens WhatsApp da Evolution API com **va
 
 ### 3. MessageNormalizer
 
-**Responsabilidade**: Converter formatos diversos da Evolution API em schema unificado.
+**Responsabilidade**: Converter formatos diversos da W-API em schema unificado.
 
 **Suporta**:
 - Texto (conversation, extendedTextMessage)
@@ -114,7 +114,7 @@ Handler principal para ingestão de mensagens WhatsApp da Evolution API com **va
 
 ## 📝 Exemplo de Uso
 
-### Payload da Evolution API
+### Payload da W-API
 
 ```json
 {
@@ -151,7 +151,7 @@ Handler principal para ingestão de mensagens WhatsApp da Evolution API com **va
   },
   "timestamp": 1704240000,
   "source": {
-    "platform": "evolution_api",
+    "platform": "wapi",
     "instance_id": "my-instance-123",
     "raw_event": {...}
   },
@@ -315,6 +315,6 @@ O handler é deployado automaticamente via Terraform como Lambda `jaiminho_messa
 
 ## 📚 Referências
 
-- [Evolution API Webhooks](https://doc.evolution-api.com/webhooks)
+- [W-API Webhooks](https://wapi.chat/webhooks)
 - [AWS Lambda Best Practices](https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html)
 - [Multi-tenant Security](https://docs.aws.amazon.com/whitepapers/latest/saas-architecture-fundamentals/tenant-isolation.html)

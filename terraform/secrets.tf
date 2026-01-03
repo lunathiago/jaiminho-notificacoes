@@ -1,22 +1,22 @@
 # AWS Secrets Manager Configuration
 
-# Evolution API Credentials
-resource "aws_secretsmanager_secret" "evolution_api" {
-  name_prefix             = "${local.name_prefix}-evolution-api-"
-  description             = "Evolution API credentials and configuration"
+# W-API Credentials
+resource "aws_secretsmanager_secret" "wapi" {
+  name_prefix             = "${local.name_prefix}-wapi-"
+  description             = "W-API credentials and configuration"
   recovery_window_in_days = var.environment == "prod" ? 30 : 0
 
   tags = merge(local.common_tags, {
-    Name        = "${local.name_prefix}-evolution-api"
+    Name        = "${local.name_prefix}-wapi"
     ServiceType = "ExternalAPI"
   })
 }
 
-resource "aws_secretsmanager_secret_version" "evolution_api_placeholder" {
-  secret_id = aws_secretsmanager_secret.evolution_api.id
+resource "aws_secretsmanager_secret_version" "wapi_placeholder" {
+  secret_id = aws_secretsmanager_secret.wapi.id
   secret_string = jsonencode({
     api_key     = "PLACEHOLDER_UPDATE_AFTER_DEPLOYMENT"
-    api_url     = "https://api.evolution.example.com"
+    api_url     = "https://api.wapi.example.com"
     instance_id = "PLACEHOLDER_INSTANCE_ID"
   })
 
@@ -111,9 +111,9 @@ resource "aws_secretsmanager_secret_version" "webhook_auth" {
 }
 
 # Secret Rotation Configuration (for production)
-resource "aws_secretsmanager_secret_rotation" "evolution_api" {
+resource "aws_secretsmanager_secret_rotation" "wapi" {
   count               = var.environment == "prod" ? 1 : 0
-  secret_id           = aws_secretsmanager_secret.evolution_api.id
+  secret_id           = aws_secretsmanager_secret.wapi.id
   rotation_lambda_arn = aws_lambda_function.secret_rotation[0].arn
 
   rotation_rules {
@@ -184,7 +184,7 @@ resource "aws_lambda_permission" "secret_rotation" {
 output "secret_arns" {
   description = "ARNs of secrets for Lambda configuration"
   value = {
-    evolution_api = aws_secretsmanager_secret.evolution_api.arn
+    wapi          = aws_secretsmanager_secret.wapi.arn
     sendpulse     = aws_secretsmanager_secret.sendpulse.arn
     app_config    = aws_secretsmanager_secret.app_config.arn
     webhook_auth  = aws_secretsmanager_secret.webhook_auth.arn

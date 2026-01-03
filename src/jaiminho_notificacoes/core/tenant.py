@@ -76,7 +76,7 @@ class TenantResolver:
         4. NEVER trusts payload user_id
         
         Args:
-            instance_id: Evolution API instance identifier
+            instance_id: W-API instance identifier
             api_key: Optional API key for additional validation
             
         Returns:

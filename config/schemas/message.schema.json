@@ -84,7 +84,7 @@
       "properties": {
         "platform": {
           "type": "string",
-          "enum": ["evolution_api", "whatsapp_business_api"]
+          "enum": ["wapi", "whatsapp_business_api"]
         },
         "instance_id": {
           "type": "string",

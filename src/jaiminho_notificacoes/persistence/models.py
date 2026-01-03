@@ -21,7 +21,7 @@ class MessageType(str, Enum):
 
 class MessageSource(str, Enum):
     """Message source platforms."""
-    EVOLUTION_API = "evolution_api"
+    WAPI = "wapi"
     WHATSAPP_BUSINESS_API = "whatsapp_business_api"
 
 
@@ -33,8 +33,8 @@ class ProcessingDecision(str, Enum):
 
 
 # Pydantic Models for Validation
-class EvolutionMessageKey(BaseModel):
-    """Evolution API message key."""
+class WAPIMessageKey(BaseModel):
+    """W-API message key."""
     remoteJid: str = Field(..., min_length=1)
     fromMe: bool
     id: str = Field(..., min_length=1)
@@ -48,8 +48,8 @@ class EvolutionMessageKey(BaseModel):
         return v
 
 
-class EvolutionMessageContent(BaseModel):
-    """Evolution API message content."""
+class WAPIMessageContent(BaseModel):
+    """W-API message content."""
     conversation: Optional[str] = None
     extendedTextMessage: Optional[Dict[str, Any]] = None
     imageMessage: Optional[Dict[str, Any]] = None
@@ -58,19 +58,19 @@ class EvolutionMessageContent(BaseModel):
     audioMessage: Optional[Dict[str, Any]] = None
 
 
-class EvolutionEventData(BaseModel):
-    """Evolution API event data."""
-    key: EvolutionMessageKey
-    message: EvolutionMessageContent
+class WAPIEventData(BaseModel):
+    """W-API event data."""
+    key: WAPIMessageKey
+    message: WAPIMessageContent
     messageTimestamp: Optional[int] = None
     pushName: Optional[str] = None
 
 
-class EvolutionWebhookEvent(BaseModel):
-    """Evolution API webhook event."""
+class WAPIWebhookEvent(BaseModel):
+    """W-API webhook event."""
     instance: str = Field(..., min_length=1)
     event: str = Field(..., min_length=1)
-    data: EvolutionEventData
+    data: WAPIEventData
     server_url: Optional[str] = None
     apikey: Optional[str] = None
 
@@ -118,7 +118,7 @@ class MessageSecurity(BaseModel):
 
 class MessageSource(BaseModel):
     """Message source information."""
-    platform: str = Field(..., pattern="^(evolution_api|whatsapp_business_api)$")
+    platform: str = Field(..., pattern="^(wapi|whatsapp_business_api)$")
     instance_id: str
     raw_event: Optional[Dict[str, Any]] = None
 
@@ -150,7 +150,7 @@ class NormalizedMessage(BaseModel):
 # Dataclasses for Database Storage
 @dataclass
 class TenantInstance:
-    """Tenant Evolution API instance mapping."""
+    """Tenant W-API instance mapping."""
     tenant_id: str
     user_id: str
     instance_id: str

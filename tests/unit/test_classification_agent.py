@@ -32,7 +32,7 @@ def sample_message():
         content=MessageContent(text="Reunião de projeto amanhã às 10h"),
         timestamp=1609459200,
         source=MessageSource(
-            platform="evolution_api",
+            platform="wapi",
             instance_id="instance_1"
         ),
         metadata=MessageMetadata(is_group=False),
@@ -118,7 +118,7 @@ class TestClassificationAgent:
             message_type=MessageType.TEXT,
             content=MessageContent(text="Reunião de trabalho urgente sobre o projeto"),
             timestamp=1609459200,
-            source=MessageSource(platform="evolution_api", instance_id="inst_1"),
+            source=MessageSource(platform="wapi", instance_id="inst_1"),
             metadata=MessageMetadata(is_group=False),
             security=MessageSecurity(
                 validated_at=datetime.utcnow().isoformat(),
@@ -152,7 +152,7 @@ class TestClassificationAgent:
             message_type=MessageType.TEXT,
             content=MessageContent(text="Seu pedido foi enviado! Código de rastreio: BR123456789"),
             timestamp=1609459200,
-            source=MessageSource(platform="evolution_api", instance_id="inst_1"),
+            source=MessageSource(platform="wapi", instance_id="inst_1"),
             metadata=MessageMetadata(is_group=False),
             security=MessageSecurity(
                 validated_at=datetime.utcnow().isoformat(),

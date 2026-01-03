@@ -1,7 +1,7 @@
-"""Lambda handler: WhatsApp message ingestion from Evolution API.
+"""Lambda handler: WhatsApp message ingestion from W-API.
 
 This is a SECURITY-CRITICAL component that:
-1. Receives webhooks from Evolution API
+1. Receives webhooks from W-API
 2. Validates instance_id authenticity
 3. Resolves user_id internally (NEVER trusts payload)
 4. Validates phone number ownership
@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from ..core.logger import get_logger
 from ..core.tenant import TenantIsolationMiddleware
 from ..ingestion.normalizer import MessageNormalizer
-from ..persistence.models import EvolutionWebhookEvent, NormalizedMessage
+from ..persistence.models import WAPIWebhookEvent, NormalizedMessage
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ class WebhookSecurityValidator:
     async def validate_request(
         self,
         event: Dict[str, Any]
-    ) -> tuple[Optional[EvolutionWebhookEvent], Optional[str]]:
+    ) -> tuple[Optional[WAPIWebhookEvent], Optional[str]]:
         """
         Validate incoming webhook request.
         
@@ -66,7 +66,7 @@ class WebhookSecurityValidator:
         
         # Validate against schema
         try:
-            webhook_event = EvolutionWebhookEvent(**payload)
+            webhook_event = WAPIWebhookEvent(**payload)
         except ValidationError as e:
             logger.security_validation_failed(
                 reason='Schema validation failed',
@@ -341,7 +341,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     AWS Lambda handler entry point.
     
-    This function receives webhooks from Evolution API and processes them
+    This function receives webhooks from W-API and processes them
     through the complete security validation pipeline.
     
     Args:

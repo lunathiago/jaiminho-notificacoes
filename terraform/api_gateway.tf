@@ -4,7 +4,7 @@
 resource "aws_apigatewayv2_api" "main" {
   name          = "${local.name_prefix}-api"
   protocol_type = "HTTP"
-  description   = "API Gateway for Evolution API webhooks and feedback"
+  description   = "API Gateway for W-API webhooks and feedback"
 
   cors_configuration {
     allow_origins = var.environment == "prod" ? ["https://yourdomain.com"] : ["*"]
@@ -69,7 +69,7 @@ resource "aws_apigatewayv2_integration" "message_webhook" {
   payload_format_version = "2.0"
   timeout_milliseconds   = 29000
 
-  description = "Integration for Evolution API webhook"
+  description = "Integration for W-API webhook"
 }
 
 # Route for incoming webhooks

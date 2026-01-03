@@ -129,9 +129,9 @@ output "secret_db_master_arn" {
   sensitive   = true
 }
 
-output "secret_evolution_api_arn" {
-  description = "ARN do secret da Evolution API"
-  value       = aws_secretsmanager_secret.evolution_api.arn
+output "secret_wapi_arn" {
+  description = "ARN do secret da W-API"
+  value       = aws_secretsmanager_secret.wapi.arn
   sensitive   = true
 }
 
@@ -237,7 +237,7 @@ output "deployment_instructions" {
   📋 PRÓXIMOS PASSOS:
   
   1. Atualizar secrets no AWS Secrets Manager:
-     - Evolution API: ${aws_secretsmanager_secret.evolution_api.name}
+     - W-API: ${aws_secretsmanager_secret.wapi.name}
      - SendPulse: ${aws_secretsmanager_secret.sendpulse.name}
      - Webhook Auth: ${aws_secretsmanager_secret.webhook_auth.name}
   
@@ -246,7 +246,7 @@ output "deployment_instructions" {
      - jaiminho_daily_digest: ${aws_lambda_function.daily_digest.function_name}
      - jaiminho_feedback_handler: ${aws_lambda_function.feedback_handler.function_name}
   
-  3. Configurar webhook na Evolution API:
+  3. Configurar webhook na W-API:
      URL: ${aws_apigatewayv2_stage.default.invoke_url}/webhook
   
   4. Inicializar banco de dados RDS:

@@ -56,7 +56,7 @@ def create_test_message(
         message_type=MessageType.TEXT,
         content=MessageContent(text=text),
         timestamp=int(time.time()),
-        source=MessageSource(platform="evolution_api", instance_id="inst_123"),
+        source=MessageSource(platform="wapi", instance_id="inst_123"),
         metadata=MessageMetadata(is_group=is_group),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),

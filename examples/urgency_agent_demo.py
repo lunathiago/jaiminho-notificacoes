@@ -39,7 +39,7 @@ def create_sample_message(
         content=MessageContent(text=text),
         timestamp=int(datetime.now().timestamp()),
         source=MessageSourceModel(
-            platform="evolution_api",
+            platform="wapi",
             instance_id="instance-001"
         ),
         metadata=MessageMetadata(is_group=is_group, from_me=False),

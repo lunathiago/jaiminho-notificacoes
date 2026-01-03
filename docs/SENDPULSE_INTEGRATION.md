@@ -11,7 +11,7 @@ Este guia descreve como integrar o adaptador SendPulse com o restante do **Jaimi
 │                                                               │
 │  1. Ingestion          2. Processing      3. Outbound        │
 │  ┌──────────────┐      ┌──────────────┐   ┌──────────────┐  │
-│  │ Evolution API│─────▶│ Classif.     │──▶│ SendPulse    │  │
+│  │ W-API│─────▶│ Classif.     │──▶│ SendPulse    │  │
 │  │ (WhatsApp)   │      │ Urgency      │   │ Adapter      │  │
 │  └──────────────┘      │ Rules Engine │   │ (WhatsApp)   │  │
 │                        │ Learning Ag. │   └──────────────┘  │

@@ -1,7 +1,7 @@
 """Script to initialize tenant-instance mappings in DynamoDB.
 
 This script helps bootstrap the tenant isolation system by creating
-the initial mappings between Evolution API instances and tenants.
+the initial mappings between W-API instances and tenants.
 
 SECURITY CRITICAL: This mapping is the foundation of tenant isolation.
 """
@@ -40,10 +40,10 @@ def create_tenant_mapping(
         dynamodb_table_name: Name of the tenants table
         tenant_id: Unique tenant identifier
         user_id: User identifier (owner of the instance)
-        instance_id: Evolution API instance ID
+        instance_id: W-API instance ID
         instance_name: Human-readable instance name
         phone_number: WhatsApp phone number for the instance
-        api_key: Evolution API key (will be hashed)
+        api_key: W-API key (will be hashed)
         status: Tenant status (active, suspended, disabled)
         metadata: Additional metadata
         
@@ -164,10 +164,10 @@ def main():
     create_parser = subparsers.add_parser('create', help='Create tenant mapping')
     create_parser.add_argument('--tenant-id', required=True, help='Tenant ID')
     create_parser.add_argument('--user-id', required=True, help='User ID')
-    create_parser.add_argument('--instance-id', required=True, help='Evolution API instance ID')
+    create_parser.add_argument('--instance-id', required=True, help='W-API instance ID')
     create_parser.add_argument('--instance-name', required=True, help='Instance name')
     create_parser.add_argument('--phone', required=True, help='WhatsApp phone number')
-    create_parser.add_argument('--api-key', required=True, help='Evolution API key')
+    create_parser.add_argument('--api-key', required=True, help='W-API key')
     create_parser.add_argument('--status', default='active', choices=['active', 'suspended', 'disabled'])
     create_parser.add_argument('--metadata', type=json.loads, help='Additional metadata (JSON)')
     

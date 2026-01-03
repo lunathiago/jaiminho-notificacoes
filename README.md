@@ -6,7 +6,7 @@ Multi-tenant cloud notification system built on AWS Lambda, designed for WhatsAp
 
 ### Key Components
 
-- **WhatsApp Ingestion**: Evolution API integration with per-tenant instance management
+- **WhatsApp Ingestion**: W-API integration with per-tenant instance management
 - **Urgency Detection**: Deterministic rule engine (executed before any LLM usage)
 - **Daily Digest**: Scheduled digest generation via EventBridge
 - **Outbound Notifications**: SendPulse integration for official WhatsApp channel
@@ -78,7 +78,7 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for full deployment guide.
 
 ## API Integration
 
-- **Evolution API**: WhatsApp message ingestion webhooks
+- **W-API**: WhatsApp message ingestion webhooks
 - **SendPulse**: Outbound notification delivery
 
 See [docs/API_INTEGRATION.md](docs/API_INTEGRATION.md) for integration details.

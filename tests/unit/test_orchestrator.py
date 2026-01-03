@@ -41,7 +41,7 @@ def base_message():
         content=MessageContent(text=""),
         timestamp=int(datetime.now().timestamp()),
         source=MessageSource(
-            platform="evolution_api",
+            platform="wapi",
             instance_id="test-instance"
         ),
         metadata=MessageMetadata(is_group=False, from_me=False),
