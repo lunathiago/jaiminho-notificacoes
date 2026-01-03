@@ -9,11 +9,11 @@ from typing import Optional
 from dataclasses import asdict
 
 from jaiminho_notificacoes.core.logger import TenantContextLogger
+from jaiminho_notificacoes.core.tenant import TenantContext
 from jaiminho_notificacoes.processing.learning_agent import (
     LearningAgent,
     HistoricalInterruptionData,
 )
-from jaiminho_notificacoes.persistence.models import NormalizedMessage
 
 logger = TenantContextLogger(__name__)
 
@@ -31,16 +31,14 @@ class HistoricalDataProvider:
 
     async def get_sender_context(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         sender_phone: str,
     ) -> Optional[HistoricalInterruptionData]:
         """
         Get historical data for a sender to inform urgency decisions.
 
         Args:
-            tenant_id: Tenant ID
-            user_id: User ID
+            tenant_context: Verified tenant context
             sender_phone: Sender's phone number
 
         Returns:
@@ -48,14 +46,15 @@ class HistoricalDataProvider:
         """
         try:
             stats = await self.learning_agent.get_sender_statistics(
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_context=tenant_context,
                 sender_phone=sender_phone,
             )
 
             if not stats:
                 logger.debug(
                     "No historical data found for sender",
+                    tenant_id=tenant_context.tenant_id,
+                    user_id=tenant_context.user_id,
                     sender_phone=sender_phone
                 )
                 return None
@@ -77,16 +76,14 @@ class HistoricalDataProvider:
 
     async def get_category_context(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         category: str,
     ) -> Optional[HistoricalInterruptionData]:
         """
         Get historical data for a category to inform urgency decisions.
 
         Args:
-            tenant_id: Tenant ID
-            user_id: User ID
+            tenant_context: Verified tenant context
             category: Message category (e.g., "financial", "marketing")
 
         Returns:
@@ -94,14 +91,15 @@ class HistoricalDataProvider:
         """
         try:
             stats = await self.learning_agent.get_category_statistics(
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_context=tenant_context,
                 category=category,
             )
 
             if not stats:
                 logger.debug(
                     "No historical data found for category",
+                    tenant_id=tenant_context.tenant_id,
+                    user_id=tenant_context.user_id,
                     category=category
                 )
                 return None
@@ -123,8 +121,7 @@ class HistoricalDataProvider:
 
     async def generate_historical_context_prompt(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         sender_phone: str,
         category: Optional[str] = None,
     ) -> str:
@@ -134,8 +131,7 @@ class HistoricalDataProvider:
         Used by Urgency Agent to include in its LLM prompt.
 
         Args:
-            tenant_id: Tenant ID
-            user_id: User ID
+            tenant_context: Verified tenant context
             sender_phone: Sender's phone number
             category: Optional message category
 
@@ -144,16 +140,14 @@ class HistoricalDataProvider:
         """
         try:
             sender_data = await self.get_sender_context(
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_context=tenant_context,
                 sender_phone=sender_phone,
             )
 
             category_data = None
             if category:
                 category_data = await self.get_category_context(
-                    tenant_id=tenant_id,
-                    user_id=user_id,
+                    tenant_context=tenant_context,
                     category=category,
                 )
 
@@ -191,8 +185,7 @@ class HistoricalDataProvider:
 
     async def get_performance_metrics(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
     ) -> dict:
         """
         Get overall performance metrics for the system.
@@ -204,12 +197,15 @@ class HistoricalDataProvider:
         """
         try:
             user_stats = await self.learning_agent.get_user_statistics(
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_context=tenant_context,
             )
 
             if not user_stats:
-                logger.debug("No user statistics available", user_id=user_id)
+                logger.debug(
+                    "No user statistics available",
+                    tenant_id=tenant_context.tenant_id,
+                    user_id=tenant_context.user_id
+                )
                 return {}
 
             # Calculate derived metrics

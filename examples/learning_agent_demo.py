@@ -10,6 +10,7 @@ import asyncio
 import json
 from datetime import datetime
 
+from src.jaiminho_notificacoes.core.tenant import TenantContext
 from src.jaiminho_notificacoes.processing.learning_agent import (
     LearningAgent,
     FeedbackType,
@@ -27,14 +28,20 @@ async def main():
 
     learning_agent = LearningAgent()
     data_provider = HistoricalDataProvider()
+    tenant_context = TenantContext(
+        tenant_id="tenant-001",
+        user_id="user-001",
+        instance_id="instance-001",
+        phone_number="5511987654321",
+        status="active"
+    )
 
     # Example 1: Process user feedback
     print("\n1. Processing user feedback...")
     print("-" * 80)
 
     success, message = await learning_agent.process_feedback(
-        tenant_id="tenant-001",
-        user_id="user-001",
+        tenant_context=tenant_context,
         message_id="msg-12345",
         sender_phone="5511987654321",
         sender_name="Maria Silva",
@@ -84,8 +91,7 @@ async def main():
 
     for feedback in feedbacks:
         success, msg = await learning_agent.process_feedback(
-            tenant_id="tenant-001",
-            user_id="user-001",
+            tenant_context=tenant_context,
             message_id=feedback["message_id"],
             sender_phone=feedback["sender_phone"],
             sender_name=feedback["sender_name"],
@@ -101,8 +107,7 @@ async def main():
     print("-" * 80)
 
     stats = await learning_agent.get_sender_statistics(
-        tenant_id="tenant-001",
-        user_id="user-001",
+        tenant_context=tenant_context,
         sender_phone="5511987654321",
     )
 
@@ -120,8 +125,7 @@ async def main():
     print("-" * 80)
 
     context = await data_provider.generate_historical_context_prompt(
-        tenant_id="tenant-001",
-        user_id="user-001",
+        tenant_context=tenant_context,
         sender_phone="5511987654321",
         category="financial",
     )
@@ -132,10 +136,7 @@ async def main():
     print("\n5. Overall system performance metrics...")
     print("-" * 80)
 
-    metrics = await data_provider.get_performance_metrics(
-        tenant_id="tenant-001",
-        user_id="user-001",
-    )
+    metrics = await data_provider.get_performance_metrics(tenant_context=tenant_context)
 
     if metrics:
         print(f"Total feedback entries: {metrics.get('total_feedback', 0)}")

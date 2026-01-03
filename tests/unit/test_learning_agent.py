@@ -1,10 +1,10 @@
 """Tests for Learning Agent."""
 
 import pytest
-import asyncio
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.jaiminho_notificacoes.core.tenant import TenantContext
 from src.jaiminho_notificacoes.processing.learning_agent import (
     LearningAgent,
     FeedbackType,
@@ -17,6 +17,18 @@ from src.jaiminho_notificacoes.processing.learning_agent import (
 def learning_agent():
     """Create a Learning Agent instance."""
     return LearningAgent()
+
+
+@pytest.fixture
+def tenant_context():
+    """Provide active tenant context for feedback processing tests."""
+    return TenantContext(
+        tenant_id="tenant-123",
+        user_id="user-456",
+        instance_id="inst-123",
+        phone_number="5511999999999",
+        status="active"
+    )
 
 
 @pytest.fixture
@@ -106,15 +118,14 @@ class TestLearningAgent:
     """Tests for LearningAgent class."""
 
     @pytest.mark.asyncio
-    async def test_process_feedback_important(self, learning_agent, test_feedback):
+    async def test_process_feedback_important(self, learning_agent, tenant_context, test_feedback):
         """Test processing feedback marked as important."""
         # Mock the persistence methods
         learning_agent._persist_feedback = AsyncMock(return_value=True)
         learning_agent._update_statistics = AsyncMock(return_value=True)
 
         success, message = await learning_agent.process_feedback(
-            tenant_id=test_feedback.tenant_id,
-            user_id=test_feedback.user_id,
+            tenant_context=tenant_context,
             message_id=test_feedback.message_id,
             sender_phone=test_feedback.sender_phone,
             sender_name=test_feedback.sender_name,
@@ -128,12 +139,11 @@ class TestLearningAgent:
         assert "processed" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_process_feedback_validation(self, learning_agent):
+    async def test_process_feedback_validation(self, learning_agent, tenant_context):
         """Test feedback validation."""
         success, message = await learning_agent.process_feedback(
-            tenant_id="",  # Invalid: empty
-            user_id="user-456",
-            message_id="msg-789",
+            tenant_context=tenant_context,
+            message_id="",
             sender_phone="5511999999999",
             sender_name="João",
             feedback_type=FeedbackType.IMPORTANT,
@@ -144,14 +154,13 @@ class TestLearningAgent:
         assert "required" in message.lower()
 
     @pytest.mark.asyncio
-    async def test_process_feedback_not_important(self, learning_agent):
+    async def test_process_feedback_not_important(self, learning_agent, tenant_context):
         """Test processing feedback marked as not important."""
         learning_agent._persist_feedback = AsyncMock(return_value=True)
         learning_agent._update_statistics = AsyncMock(return_value=True)
 
         success, message = await learning_agent.process_feedback(
-            tenant_id="tenant-123",
-            user_id="user-456",
+            tenant_context=tenant_context,
             message_id="msg-789",
             sender_phone="5511999999999",
             sender_name="Bot",
@@ -186,15 +195,14 @@ class TestLearningAgent:
         assert result is True
 
     @pytest.mark.asyncio
-    async def test_get_sender_statistics(self, learning_agent):
+    async def test_get_sender_statistics(self, learning_agent, tenant_context):
         """Test retrieving sender statistics."""
         learning_agent._persist_feedback = AsyncMock(return_value=True)
         learning_agent._update_statistics = AsyncMock(return_value=True)
 
         # First, process some feedback to create statistics
         await learning_agent.process_feedback(
-            tenant_id="tenant-123",
-            user_id="user-456",
+            tenant_context=tenant_context,
             message_id="msg-1",
             sender_phone="5511999999999",
             sender_name="João",
@@ -206,8 +214,7 @@ class TestLearningAgent:
         with patch.object(learning_agent, 'learning_agent', return_value=None):
             # This would normally query DynamoDB
             stats = await learning_agent.get_sender_statistics(
-                tenant_id="tenant-123",
-                user_id="user-456",
+                tenant_context=tenant_context,
                 sender_phone="5511999999999",
             )
 
@@ -215,14 +222,13 @@ class TestLearningAgent:
             assert stats is None or isinstance(stats, dict)
 
     @pytest.mark.asyncio
-    async def test_feedback_reason_optional(self, learning_agent):
+    async def test_feedback_reason_optional(self, learning_agent, tenant_context):
         """Test that feedback_reason is optional."""
         learning_agent._persist_feedback = AsyncMock(return_value=True)
         learning_agent._update_statistics = AsyncMock(return_value=True)
 
         success, message = await learning_agent.process_feedback(
-            tenant_id="tenant-123",
-            user_id="user-456",
+            tenant_context=tenant_context,
             message_id="msg-789",
             sender_phone="5511999999999",
             sender_name="João",
@@ -234,14 +240,13 @@ class TestLearningAgent:
         assert success is True
 
     @pytest.mark.asyncio
-    async def test_response_time_optional(self, learning_agent):
+    async def test_response_time_optional(self, learning_agent, tenant_context):
         """Test that user_response_time_seconds is optional."""
         learning_agent._persist_feedback = AsyncMock(return_value=True)
         learning_agent._update_statistics = AsyncMock(return_value=True)
 
         success, message = await learning_agent.process_feedback(
-            tenant_id="tenant-123",
-            user_id="user-456",
+            tenant_context=tenant_context,
             message_id="msg-789",
             sender_phone="5511999999999",
             sender_name="João",

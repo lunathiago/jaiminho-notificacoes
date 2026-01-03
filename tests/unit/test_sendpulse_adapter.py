@@ -1,5 +1,6 @@
 """Unit tests for SendPulse adapter."""
 
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
@@ -165,6 +166,21 @@ class TestSendPulseMessage:
         assert result['message_type'] == 'urgent'
         assert result['tenant_id'] == 'tenant_1'
         assert result['message_id'] == 'msg_123'
+        assert result['wapi_instance_id'] is None
+
+    def test_feedback_requires_instance(self):
+        """Feedback messages require wapi_instance_id."""
+        content = SendPulseContent(text='Need feedback')
+        message = SendPulseMessage(
+            recipient_phone='554899999999',
+            content=content,
+            message_type=NotificationType.FEEDBACK,
+            tenant_id='tenant_1',
+            user_id='user_1'
+        )
+        valid, error = message.validate()
+        assert valid is False
+        assert 'wapi_instance_id' in error
 
 
 class TestSendPulseResponse:
@@ -208,52 +224,59 @@ class TestSendPulseAuthenticator:
     @pytest.mark.asyncio
     async def test_get_credentials(self):
         """Test getting credentials from Secrets Manager."""
-        with patch('jaiminho_notificacoes.outbound.sendpulse.secrets_manager') as mock_sm:
-            mock_sm.get_secret_value.return_value = {
-                'SecretString': json.dumps({
-                    'client_id': 'test_client',
-                    'client_secret': 'test_secret',
-                    'api_url': 'https://api.sendpulse.com'
-                })
-            }
+        with patch.dict(os.environ, {'SENDPULSE_SECRET_ARN': 'arn:dummy'}, clear=False):
+            with patch('jaiminho_notificacoes.outbound.sendpulse.SENDPULSE_SECRET_ARN', 'arn:dummy'):
+                with patch('jaiminho_notificacoes.outbound.sendpulse.secrets_manager') as mock_sm:
+                    mock_sm.get_secret_value.return_value = {
+                        'SecretString': json.dumps({
+                            'client_id': 'test_client',
+                            'client_secret': 'test_secret',
+                            'api_url': 'https://api.sendpulse.com'
+                        })
+                    }
 
-            auth = SendPulseAuthenticator()
-            creds = await auth.get_credentials()
+                    auth = SendPulseAuthenticator()
+                    creds = await auth.get_credentials()
 
-            assert creds['client_id'] == 'test_client'
-            assert creds['client_secret'] == 'test_secret'
+                    assert creds['client_id'] == 'test_client'
+                    assert creds['client_secret'] == 'test_secret'
 
     @pytest.mark.asyncio
     async def test_token_caching(self):
         """Test token caching."""
-        with patch('jaiminho_notificacoes.outbound.sendpulse.secrets_manager') as mock_sm:
-            mock_sm.get_secret_value.return_value = {
-                'SecretString': json.dumps({
-                    'client_id': 'test_client',
-                    'client_secret': 'test_secret'
-                })
-            }
+        with patch.dict(os.environ, {'SENDPULSE_SECRET_ARN': 'arn:dummy'}, clear=False):
+            with patch('jaiminho_notificacoes.outbound.sendpulse.SENDPULSE_SECRET_ARN', 'arn:dummy'):
+                with patch('jaiminho_notificacoes.outbound.sendpulse.secrets_manager') as mock_sm:
+                    mock_sm.get_secret_value.return_value = {
+                        'SecretString': json.dumps({
+                            'client_id': 'test_client',
+                            'client_secret': 'test_secret'
+                        })
+                    }
 
-            with patch('aiohttp.ClientSession') as mock_session:
-                mock_response = AsyncMock()
-                mock_response.status = 200
-                mock_response.json = AsyncMock(return_value={
-                    'access_token': 'token_123',
-                    'expires_in': 3600
-                })
-                mock_session.return_value.__aenter__.return_value.post = AsyncMock(
-                    return_value=mock_response
-                )
+                    with patch('aiohttp.ClientSession') as mock_session:
+                        mock_response = AsyncMock()
+                        mock_response.status = 200
+                        mock_response.json = AsyncMock(return_value={
+                            'access_token': 'token_123',
+                            'expires_in': 3600
+                        })
+                        session_instance = MagicMock()
+                        mock_session.return_value.__aenter__.return_value = session_instance
+                        mock_post_context = MagicMock()
+                        mock_post_context.__aenter__ = AsyncMock(return_value=mock_response)
+                        mock_post_context.__aexit__ = AsyncMock(return_value=None)
+                        session_instance.post.return_value = mock_post_context
 
-                auth = SendPulseAuthenticator()
+                        auth = SendPulseAuthenticator()
 
-                # First call
-                token1 = await auth.get_token()
-                assert token1 == 'token_123'
+                        # First call
+                        token1 = await auth.get_token()
+                        assert token1 == 'token_123'
 
-                # Second call should use cached token
-                token2 = await auth.get_token()
-                assert token2 == 'token_123'
+                        # Second call should use cached token
+                        token2 = await auth.get_token()
+                        assert token2 == 'token_123'
 
 
 class TestSendPulseUserResolver:
@@ -389,12 +412,16 @@ class TestSendPulseDigestSender:
             content=content,
             message_type=NotificationType.DIGEST,
             tenant_id='tenant_1',
-            user_id='user_1'
+            user_id='user_1',
+            wapi_instance_id='instance-abc'
         )
 
         response = await sender.send(message)
 
         assert response.success is True
+        payload = sender._make_request.call_args[0][2]
+        assert payload['metadata']['wapi_instance_id'] == 'instance-abc'
+        assert 'user_id' not in payload['metadata']
         assert response.status == 'queued'
 
 
@@ -420,7 +447,8 @@ class TestSendPulseFeedbackSender:
             content=content,
             message_type=NotificationType.FEEDBACK,
             tenant_id='tenant_1',
-            user_id='user_1'
+            user_id='user_1',
+            wapi_instance_id='instance-abc'
         )
 
         response = await sender.send(message)
@@ -438,13 +466,33 @@ class TestSendPulseFeedbackSender:
             content=content,
             message_type=NotificationType.FEEDBACK,
             tenant_id='tenant_1',
-            user_id='user_1'
+            user_id='user_1',
+            wapi_instance_id='instance-abc'
         )
 
         response = await sender.send(message)
 
         assert response.success is False
         assert "requires buttons" in response.error
+
+    @pytest.mark.asyncio
+    async def test_send_feedback_missing_instance(self):
+        """Missing wapi_instance_id returns validation error."""
+        sender = SendPulseFeedbackSender()
+
+        content = SendPulseContent(text='Is this important?')
+        message = SendPulseMessage(
+            recipient_phone='554899999999',
+            content=content,
+            message_type=NotificationType.FEEDBACK,
+            tenant_id='tenant_1',
+            user_id='user_1'
+        )
+
+        response = await sender.send(message)
+
+        assert response.success is False
+        assert 'wapi_instance_id' in response.error
 
 
 class TestSendPulseNotificationFactory:
@@ -487,10 +535,15 @@ class TestSendPulseManager:
                 response = await manager.send_notification(
                     tenant_id='tenant_1',
                     user_id='user_1',
-                    content_text='Hello'
+                    content_text='Hello',
+                    metadata={'campaign': 'welcome'},
+                    wapi_instance_id='instance-xyz'
                 )
 
                 assert response.success is True
+                send_arg = mock_sender.send.call_args[0][0]
+                assert send_arg.wapi_instance_id == 'instance-xyz'
+                assert send_arg.metadata == {'campaign': 'welcome'}
 
     @pytest.mark.asyncio
     async def test_send_notification_phone_not_found(self):
@@ -523,3 +576,44 @@ class TestSendPulseManager:
 
             assert len(responses) == 2
             assert all(r.success for r in responses)
+
+    @pytest.mark.asyncio
+    async def test_send_feedback_missing_instance(self):
+        """Feedback notification without instance returns error."""
+        manager = SendPulseManager()
+
+        with patch.object(manager.resolver, 'resolve_phone', return_value='554899999999'):
+            response = await manager.send_notification(
+                tenant_id='tenant_1',
+                user_id='user_1',
+                content_text='Need feedback',
+                message_type=NotificationType.FEEDBACK
+            )
+
+        assert response.success is False
+        assert 'wapi_instance_id' in response.error
+
+    @pytest.mark.asyncio
+    async def test_send_feedback_with_instance(self):
+        """Feedback notification uses provided instance id."""
+        manager = SendPulseManager()
+
+        with patch.object(manager.resolver, 'resolve_phone', return_value='554899999999'):
+            with patch('jaiminho_notificacoes.outbound.sendpulse.SendPulseNotificationFactory.get_sender') as mock_factory:
+                mock_sender = AsyncMock()
+                mock_sender.send = AsyncMock(return_value=SendPulseResponse(success=True))
+                mock_factory.return_value = mock_sender
+
+                response = await manager.send_notification(
+                    tenant_id='tenant_1',
+                    user_id='user_1',
+                    content_text='Need feedback',
+                    message_type=NotificationType.FEEDBACK,
+                    wapi_instance_id='instance-abc',
+                    metadata={'some': 'value'}
+                )
+
+                assert response.success is True
+                send_arg = mock_sender.send.call_args[0][0]
+                assert send_arg.wapi_instance_id == 'instance-abc'
+                assert 'wapi_instance_id' not in send_arg.metadata

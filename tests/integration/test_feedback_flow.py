@@ -14,6 +14,8 @@ import os
 from datetime import datetime
 from unittest.mock import patch, AsyncMock, MagicMock
 
+from jaiminho_notificacoes.core.tenant import TenantContext
+
 # Set AWS region
 os.environ['AWS_REGION'] = 'us-east-1'
 
@@ -23,7 +25,14 @@ def mock_tenant_middleware():
     """Mock TenantIsolationMiddleware to avoid boto3 initialization."""
     with patch('jaiminho_notificacoes.processing.feedback_handler.TenantIsolationMiddleware') as mock:
         mock_instance = MagicMock()
-        mock_instance.validate_tenant_context = MagicMock()
+        tenant_context = TenantContext(
+            tenant_id='company_acme',
+            user_id='user_alice',
+            instance_id='instance-abc',
+            phone_number='+5548988776655',
+            status='active'
+        )
+        mock_instance.validate_and_resolve = AsyncMock(return_value=(tenant_context, {}))
         mock.return_value = mock_instance
         yield mock
 
@@ -58,7 +67,7 @@ def sample_webhook_event():
         'timestamp': int(datetime.utcnow().timestamp()),
         'metadata': {
             'message_id': 'jaiminho_notif_456',
-            'user_id': 'user_alice',
+            'wapi_instance_id': 'instance-abc',
             'tenant_id': 'company_acme',
             'sender_phone': '+5548988776655',
             'category': 'financial'
@@ -95,23 +104,22 @@ class TestEndToEndFeedbackFlow:
         handler = get_feedback_handler()
 
         # Mock dependencies
-        with patch.object(handler.processor.middleware, 'validate_tenant_context'):
-            with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = True
+        with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = True
 
-                # 2. Process webhook
-                result = await handler.handle_webhook(sample_webhook_event)
+            # 2. Process webhook
+            result = await handler.handle_webhook(sample_webhook_event)
 
-                # 3. Verify processing
-                assert result.success is True
-                assert result.feedback_id is not None
-                assert result.message_id == 'jaiminho_notif_456'
-                assert result.user_id == 'user_alice'
-                assert result.feedback_type == 'important'
-                assert result.statistics_updated is True
+            # 3. Verify processing
+            assert result.success is True
+            assert result.feedback_id is not None
+            assert result.message_id == 'jaiminho_notif_456'
+            assert result.user_id == 'user_alice'
+            assert result.feedback_type == 'important'
+            assert result.statistics_updated is True
 
-                # 4. Verify Learning Agent was called
-                mock_update.assert_called_once()
+            # 4. Verify Learning Agent was called
+            mock_update.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_lambda_handler_integration(self, sample_webhook_event):
@@ -232,7 +240,7 @@ class TestMultiTenantFeedback:
             'timestamp': int(datetime.utcnow().timestamp()),
             'metadata': {
                 'message_id': 'jaiminho_t1',
-                'user_id': 'user_t1',
+                'wapi_instance_id': 'instance-tenant1',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -245,12 +253,35 @@ class TestMultiTenantFeedback:
             'timestamp': int(datetime.utcnow().timestamp()),
             'metadata': {
                 'message_id': 'jaiminho_t2',
-                'user_id': 'user_t2',
+                'wapi_instance_id': 'instance-tenant2',
                 'tenant_id': 'tenant_2'
             }
         }
 
-        with patch.object(handler.processor.middleware, 'validate_tenant_context') as mock_validate:
+        with patch.object(handler.processor.middleware, 'validate_and_resolve', new_callable=AsyncMock) as mock_resolve:
+            mock_resolve.side_effect = [
+                (
+                    TenantContext(
+                        tenant_id='tenant_1',
+                        user_id='user_t1',
+                        instance_id='instance-tenant1',
+                        phone_number='+554899999999',
+                        status='active'
+                    ),
+                    {}
+                ),
+                (
+                    TenantContext(
+                        tenant_id='tenant_2',
+                        user_id='user_t2',
+                        instance_id='instance-tenant2',
+                        phone_number='+554888888888',
+                        status='active'
+                    ),
+                    {}
+                )
+            ]
+
             with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
                 mock_update.return_value = True
 
@@ -265,8 +296,8 @@ class TestMultiTenantFeedback:
                 # Different feedback IDs
                 assert result1.feedback_id != result2.feedback_id
 
-                # Tenant validation was called for each
-                assert mock_validate.call_count == 2
+                # Tenant resolution was called for each
+                assert mock_resolve.call_count == 2
 
 
 class TestErrorRecovery:
@@ -277,7 +308,18 @@ class TestErrorRecovery:
         """Test graceful degradation when Learning Agent fails."""
         handler = get_feedback_handler()
 
-        with patch.object(handler.processor.middleware, 'validate_tenant_context'):
+        with patch.object(handler.processor.middleware, 'validate_and_resolve', new_callable=AsyncMock) as mock_resolve:
+            mock_resolve.return_value = (
+                TenantContext(
+                    tenant_id='company_acme',
+                    user_id='user_alice',
+                    instance_id='instance-abc',
+                    phone_number='+5548988776655',
+                    status='active'
+                ),
+                {}
+            )
+
             with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
                 # Simulate Learning Agent failure
                 mock_update.return_value = False
@@ -329,13 +371,24 @@ class TestPerformance:
                 'timestamp': int(datetime.utcnow().timestamp()) + i,
                 'metadata': {
                     'message_id': f'jaiminho_{i}',
-                    'user_id': f'user_{i}',
+                        'wapi_instance_id': f'instance-{i}',
                     'tenant_id': 'company_test'
                 }
             }
             events.append(event)
 
-        with patch.object(handler.processor.middleware, 'validate_tenant_context'):
+        with patch.object(handler.processor.middleware, 'validate_and_resolve', new_callable=AsyncMock) as mock_resolve:
+            mock_resolve.return_value = (
+                TenantContext(
+                    tenant_id='company_test',
+                    user_id='user_batch',
+                    instance_id='instance-batch',
+                    phone_number='+5548999999800',
+                    status='active'
+                ),
+                {}
+            )
+
             with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
                 mock_update.return_value = True
 

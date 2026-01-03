@@ -14,7 +14,8 @@ Event structure:
     'recipient_phone': str (optional),
     'buttons': [{id, title, action}] (optional),
     'media_url': str (optional),
-    'metadata': dict (optional)
+    'metadata': dict (optional),
+    'wapi_instance_id': str (obrigatorio para feedback)
 }
 """
 
@@ -72,12 +73,6 @@ async def send_notification_async(event: Dict[str, Any]) -> Dict[str, Any]:
                 })
             }
 
-        # Validate tenant context
-        get_middleware().validate_tenant_context({
-            'tenant_id': tenant_id,
-            'user_id': user_id
-        })
-
         # Map notification type
         try:
             notification_type = NotificationType(notification_type_str)
@@ -87,7 +82,20 @@ async def send_notification_async(event: Dict[str, Any]) -> Dict[str, Any]:
         # Extract optional parameters
         recipient_phone = event.get('recipient_phone')
         media_url = event.get('media_url')
-        metadata = event.get('metadata', {})
+        metadata = event.get('metadata', {}) or {}
+        wapi_instance_id = event.get('wapi_instance_id') or metadata.get('wapi_instance_id')
+
+        if notification_type == NotificationType.FEEDBACK and not wapi_instance_id:
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'success': False,
+                    'error': 'wapi_instance_id required for feedback notifications'
+                })
+            }
+
+        metadata = metadata.copy()
+        metadata.pop('wapi_instance_id', None)
 
         # Build buttons if provided
         buttons = None
@@ -118,7 +126,8 @@ async def send_notification_async(event: Dict[str, Any]) -> Dict[str, Any]:
             recipient_phone=recipient_phone,
             buttons=buttons,
             media_url=media_url,
-            metadata=metadata
+            metadata=metadata,
+            wapi_instance_id=wapi_instance_id
         )
 
         response_body = {
@@ -188,12 +197,6 @@ async def send_batch_notifications_async(event: Dict[str, Any]) -> Dict[str, Any
                     'error': 'Missing required parameters'
                 })
             }
-
-        # Validate tenant
-        get_middleware().validate_tenant_context({
-            'tenant_id': tenant_id,
-            'user_id': user_ids[0] if user_ids else 'batch'
-        })
 
         try:
             notification_type = NotificationType(notification_type_str)

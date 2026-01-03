@@ -35,7 +35,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "timestamp": 1705340400,
         "metadata": {
             "message_id": "jaiminho_notif_456",
-            "user_id": "user_1",
+            "wapi_instance_id": "instance-abc",
             "tenant_id": "tenant_1"
         }
     }

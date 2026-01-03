@@ -21,7 +21,7 @@ from enum import Enum
 import boto3
 
 from jaiminho_notificacoes.core.logger import TenantContextLogger
-from jaiminho_notificacoes.core.tenant import TenantIsolationMiddleware
+from jaiminho_notificacoes.core.tenant import TenantContext
 from jaiminho_notificacoes.persistence.models import (
     NormalizedMessage,
 )
@@ -149,7 +149,6 @@ class LearningAgent:
 
     def __init__(self):
         """Initialize Learning Agent."""
-        self.middleware = TenantIsolationMiddleware()
         self.feedback_table_name = os.getenv(
             'DYNAMODB_FEEDBACK_TABLE',
             'jaiminho-feedback'
@@ -161,8 +160,7 @@ class LearningAgent:
 
     async def process_feedback(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         message_id: str,
         sender_phone: str,
         sender_name: Optional[str],
@@ -176,8 +174,7 @@ class LearningAgent:
         Process user feedback on a message.
 
         Args:
-            tenant_id: Tenant ID
-            user_id: User ID
+            tenant_context: Verified tenant context resolved via W-API instance mapping
             message_id: Message ID being given feedback on
             sender_phone: Sender's phone number
             sender_name: Sender's name (optional)
@@ -191,10 +188,15 @@ class LearningAgent:
             (success: bool, message: str)
         """
         try:
-            # Validate inputs
-            if not tenant_id or not user_id:
-                return False, "tenant_id and user_id are required"
+            tenant_id = tenant_context.tenant_id
+            user_id = tenant_context.user_id
 
+            logger.set_context(tenant_id=tenant_id, user_id=user_id)
+
+            if not tenant_context.is_active():
+                return False, "Tenant context is not active"
+
+            # Validate inputs
             if not message_id or not sender_phone:
                 return False, "message_id and sender_phone are required"
 
@@ -253,6 +255,8 @@ class LearningAgent:
         except Exception as e:
             logger.error(f"Error processing feedback: {e}")
             return False, f"Error: {str(e)}"
+        finally:
+            logger.clear_context()
 
     async def _persist_feedback(self, feedback: UserFeedback) -> bool:
         """Persist feedback entry to DynamoDB."""
@@ -552,8 +556,7 @@ class LearningAgent:
 
     async def get_sender_statistics(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         sender_phone: str
     ) -> Optional[Dict[str, Any]]:
         """
@@ -564,7 +567,7 @@ class LearningAgent:
         try:
             table = dynamodb.Table(self.stats_table_name)
 
-            pk = f"STATS#{tenant_id}#{user_id}"
+            pk = f"STATS#{tenant_context.tenant_id}#{tenant_context.user_id}"
             sk = f"SENDER#{sender_phone}"
 
             response = table.get_item(Key={'PK': pk, 'SK': sk})
@@ -585,8 +588,7 @@ class LearningAgent:
 
     async def get_category_statistics(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         category: str
     ) -> Optional[Dict[str, Any]]:
         """
@@ -597,7 +599,7 @@ class LearningAgent:
         try:
             table = dynamodb.Table(self.stats_table_name)
 
-            pk = f"STATS#{tenant_id}#{user_id}"
+            pk = f"STATS#{tenant_context.tenant_id}#{tenant_context.user_id}"
             sk = f"CATEGORY#{category}"
 
             response = table.get_item(Key={'PK': pk, 'SK': sk})
@@ -618,21 +620,20 @@ class LearningAgent:
 
     async def get_user_statistics(
         self,
-        tenant_id: str,
-        user_id: str
+        tenant_context: TenantContext
     ) -> Optional[Dict[str, Any]]:
         """Retrieve overall statistics for a user."""
         try:
             table = dynamodb.Table(self.stats_table_name)
 
-            pk = f"STATS#{tenant_id}#{user_id}"
+            pk = f"STATS#{tenant_context.tenant_id}#{tenant_context.user_id}"
             sk = "USER#OVERALL"
 
             response = table.get_item(Key={'PK': pk, 'SK': sk})
             item = response.get('Item')
 
             if not item:
-                logger.debug("No statistics found for user", user_id=user_id)
+                logger.debug("No statistics found for user", user_id=tenant_context.user_id)
                 return None
 
             return item
@@ -643,8 +644,7 @@ class LearningAgent:
 
     async def get_recent_feedback(
         self,
-        tenant_id: str,
-        user_id: str,
+        tenant_context: TenantContext,
         limit: int = 10,
         sender_phone: Optional[str] = None
     ) -> List[Dict[str, Any]]:
@@ -656,7 +656,7 @@ class LearningAgent:
         try:
             table = dynamodb.Table(self.feedback_table_name)
 
-            pk = f"FEEDBACK#{tenant_id}#{user_id}"
+            pk = f"FEEDBACK#{tenant_context.tenant_id}#{tenant_context.user_id}"
 
             response = table.query(
                 KeyConditionExpression='PK = :pk',

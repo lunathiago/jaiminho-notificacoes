@@ -443,7 +443,8 @@ Dispare notificações via events:
     "tenant_id": "tenant_1",
     "user_id": "user_1",
     "notification_type": "urgent",
-    "content_text": "Message"
+        "content_text": "Message",
+        "wapi_instance_id": "instance-abc"
   }
 }
 ```

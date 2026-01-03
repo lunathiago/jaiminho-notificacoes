@@ -2,7 +2,7 @@
 
 This module processes feedback button responses from SendPulse:
 - Receives button clicks (Important / Not Important)
-- Associates with original message and user_id
+- Resolves user context internally via W-API instance mapping
 - Updates interruption statistics via Learning Agent
 - Influences future urgency decisions
 
@@ -18,7 +18,7 @@ Event structure from SendPulse webhook:
     "timestamp": 1705340400,
     "metadata": {
         "message_id": "jaiminho_notif_456",
-        "user_id": "user_1",
+        "wapi_instance_id": "instance-abc",
         "tenant_id": "tenant_1"
     }
 }
@@ -30,10 +30,9 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
-import asyncio
 
 from jaiminho_notificacoes.core.logger import TenantContextLogger
-from jaiminho_notificacoes.core.tenant import TenantIsolationMiddleware
+from jaiminho_notificacoes.core.tenant import TenantIsolationMiddleware, TenantContext
 from jaiminho_notificacoes.persistence.models import (
     FeedbackType,
     UserFeedbackRecord
@@ -57,7 +56,7 @@ class SendPulseWebhookEvent:
     message_id: str  # SendPulse message ID
     button_reply: Dict[str, str]  # {id, title}
     timestamp: int
-    metadata: Dict[str, Any]  # Contains: message_id, user_id, tenant_id
+    metadata: Dict[str, Any]  # Contains: message_id, wapi_instance_id, optional tenant_id
 
 
 @dataclass
@@ -95,13 +94,16 @@ class SendPulseWebhookValidator:
 
         # Check metadata
         if 'metadata' not in event:
-            return False, "Missing metadata (should contain: message_id, user_id, tenant_id)"
+            return False, "Missing metadata (should contain: message_id, wapi_instance_id, optional tenant_id)"
 
         metadata = event['metadata']
-        required_metadata = ['message_id', 'user_id', 'tenant_id']
+        required_metadata = ['message_id', 'wapi_instance_id']
         for field in required_metadata:
             if field not in metadata:
                 return False, f"Missing metadata field: {field}"
+
+        if 'user_id' in metadata:
+            return False, "metadata must not include user_id"
 
         # Check button reply structure
         button_reply = event['button_reply']
@@ -214,17 +216,48 @@ class UserFeedbackProcessor:
 
             # Extract fields
             metadata = event['metadata']
-            tenant_id = metadata['tenant_id']
-            user_id = metadata['user_id']
             message_id = metadata['message_id']
+            instance_id = metadata['wapi_instance_id']
+            tenant_hint = metadata.get('tenant_id')
             button_id = event['button_reply']['id']
             timestamp = event['timestamp']
 
-            # Validate tenant context
-            self.middleware.validate_tenant_context({
-                'tenant_id': tenant_id,
-                'user_id': user_id
-            })
+            # Resolve tenant context via W-API instance mapping
+            tenant_payload = {'tenant_id': tenant_hint} if tenant_hint else None
+            tenant_context, validation_errors = await self.middleware.validate_and_resolve(
+                instance_id=instance_id,
+                payload=tenant_payload
+            )
+
+            if not tenant_context:
+                logger.security_validation_failed(
+                    reason='Feedback webhook failed tenant resolution',
+                    instance_id=instance_id,
+                    tenant_id=tenant_hint,
+                    details={'errors': validation_errors}
+                )
+                return FeedbackProcessingResult(
+                    success=False,
+                    error='Unauthorized: invalid or inactive W-API instance'
+                )
+
+            if tenant_hint and tenant_hint != tenant_context.tenant_id:
+                logger.security_validation_failed(
+                    reason='Feedback metadata tenant mismatch',
+                    instance_id=instance_id,
+                    tenant_id=tenant_context.tenant_id,
+                    details={'metadata_tenant': tenant_hint}
+                )
+                return FeedbackProcessingResult(
+                    success=False,
+                    error='Unauthorized: tenant mismatch'
+                )
+
+            logger.set_context(
+                tenant_id=tenant_context.tenant_id,
+                user_id=tenant_context.user_id,
+                instance_id=tenant_context.instance_id
+            )
 
             # Map button to feedback type
             feedback_type = self.validator.map_button_to_feedback(button_id)
@@ -236,22 +269,22 @@ class UserFeedbackProcessor:
 
             logger.info(
                 "Processing feedback",
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_id=tenant_context.tenant_id,
+                user_id=tenant_context.user_id,
                 message_id=message_id,
                 feedback_type=feedback_type.value
             )
 
             # Resolve message context
             message_context = await self.resolver.resolve_message_context(
-                tenant_id,
+                tenant_context.tenant_id,
                 message_id
             )
 
             if not message_context:
                 logger.warning(
                     "Could not resolve message context",
-                    tenant_id=tenant_id,
+                    tenant_id=tenant_context.tenant_id,
                     message_id=message_id
                 )
                 # Continue processing anyway (feedback is still valuable)
@@ -262,8 +295,8 @@ class UserFeedbackProcessor:
 
             feedback_record = UserFeedbackRecord(
                 feedback_id=feedback_id,
-                tenant_id=tenant_id,
-                user_id=user_id,
+                tenant_id=tenant_context.tenant_id,
+                user_id=tenant_context.user_id,
                 message_id=message_id,
                 sender_phone=message_context.get('sender_phone', 'unknown'),
                 sender_name=message_context.get('sender_name'),
@@ -286,6 +319,7 @@ class UserFeedbackProcessor:
 
             # Update Learning Agent statistics
             statistics_updated = await self._update_learning_agent(
+                tenant_context,
                 feedback_record
             )
 
@@ -296,7 +330,7 @@ class UserFeedbackProcessor:
                 success=True,
                 feedback_id=feedback_id,
                 message_id=message_id,
-                user_id=user_id,
+                user_id=tenant_context.user_id,
                 feedback_type=feedback_type.value,
                 processing_time_ms=elapsed_ms,
                 statistics_updated=statistics_updated
@@ -318,6 +352,8 @@ class UserFeedbackProcessor:
                 error=f"Exception: {str(e)}",
                 processing_time_ms=elapsed_ms
             )
+        finally:
+            logger.clear_context()
 
     @staticmethod
     def _calculate_response_time(sent_at: Optional[str], response_at: int) -> Optional[float]:
@@ -335,12 +371,14 @@ class UserFeedbackProcessor:
 
     async def _update_learning_agent(
         self,
+        tenant_context: TenantContext,
         feedback_record: UserFeedbackRecord
     ) -> bool:
         """
         Update Learning Agent with feedback.
 
         Args:
+            tenant_context: Verified tenant context
             feedback_record: Feedback record to process
 
         Returns:
@@ -348,11 +386,23 @@ class UserFeedbackProcessor:
         """
         try:
             from jaiminho_notificacoes.processing.learning_agent import (
-                LearningAgent
+                LearningAgent,
+                FeedbackType as AgentFeedbackType
             )
 
             agent = LearningAgent()
-            await agent.process_feedback(feedback_record)
+            agent_feedback_type = AgentFeedbackType(feedback_record.feedback_type)
+            await agent.process_feedback(
+                tenant_context=tenant_context,
+                message_id=feedback_record.message_id,
+                sender_phone=feedback_record.sender_phone,
+                sender_name=feedback_record.sender_name,
+                feedback_type=agent_feedback_type,
+                was_interrupted=feedback_record.was_interrupted,
+                message_category=feedback_record.message_category,
+                user_response_time_seconds=feedback_record.user_response_time_seconds,
+                feedback_reason=feedback_record.feedback_reason,
+            )
 
             logger.info(
                 "Learning Agent updated",

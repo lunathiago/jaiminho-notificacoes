@@ -4,6 +4,7 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock
 
+from jaiminho_notificacoes.core.tenant import TenantContext
 from jaiminho_notificacoes.processing.digest_generator import (
     DigestAgent,
     DigestMessage,
@@ -22,7 +23,19 @@ from jaiminho_notificacoes.persistence.models import (
 
 
 @pytest.fixture
-def sample_messages():
+def tenant_context():
+    """Provide verified tenant context for digest generation."""
+    return TenantContext(
+        tenant_id="tenant_1",
+        user_id="user_1",
+        instance_id="inst_1",
+        phone_number="5511999999999",
+        status="active"
+    )
+
+
+@pytest.fixture
+def sample_messages(tenant_context):
     """Create sample messages for testing."""
     base_time = int(datetime(2026, 1, 3, 10, 0).timestamp())
     
@@ -31,14 +44,14 @@ def sample_messages():
     # Work message
     msg1 = NormalizedMessage(
         message_id="msg_1",
-        tenant_id="tenant_1",
-        user_id="user_1",
+        tenant_id=tenant_context.tenant_id,
+        user_id=tenant_context.user_id,
         sender_phone="5511111111111",
         sender_name="João",
         message_type=MessageType.TEXT,
         content=MessageContent(text="Reunião amanhã às 10h"),
         timestamp=base_time,
-        source=MessageSource(platform="wapi", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
@@ -56,14 +69,14 @@ def sample_messages():
     # Delivery message
     msg2 = NormalizedMessage(
         message_id="msg_2",
-        tenant_id="tenant_1",
-        user_id="user_1",
+        tenant_id=tenant_context.tenant_id,
+        user_id=tenant_context.user_id,
         sender_phone="5511222222222",
         sender_name="Correios",
         message_type=MessageType.TEXT,
         content=MessageContent(text="Seu pedido foi enviado"),
         timestamp=base_time + 3600,
-        source=MessageSource(platform="wapi", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
@@ -80,14 +93,14 @@ def sample_messages():
     # Family message
     msg3 = NormalizedMessage(
         message_id="msg_3",
-        tenant_id="tenant_1",
-        user_id="user_1",
+        tenant_id=tenant_context.tenant_id,
+        user_id=tenant_context.user_id,
         sender_phone="5511333333333",
         sender_name="Mãe",
         message_type=MessageType.TEXT,
         content=MessageContent(text="Tudo bem filho?"),
         timestamp=base_time + 7200,
-        source=MessageSource(platform="wapi", instance_id="inst_1"),
+        source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
         metadata=MessageMetadata(is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
@@ -114,30 +127,28 @@ class TestDigestAgent:
         assert agent.logger is not None
     
     @pytest.mark.asyncio
-    async def test_generate_digest_basic(self, sample_messages):
+    async def test_generate_digest_basic(self, tenant_context, sample_messages):
         """Test basic digest generation."""
         agent = DigestAgent()
         
         digest = await agent.generate_digest(
-            user_id="user_1",
-            tenant_id="tenant_1",
+            tenant_context=tenant_context,
             messages=sample_messages,
             date="2026-01-03"
         )
         
-        assert digest.user_id == "user_1"
-        assert digest.tenant_id == "tenant_1"
+        assert digest.user_id == tenant_context.user_id
+        assert digest.tenant_id == tenant_context.tenant_id
         assert digest.total_messages == 3
         assert len(digest.categories) == 3
     
     @pytest.mark.asyncio
-    async def test_generate_digest_empty(self):
+    async def test_generate_digest_empty(self, tenant_context):
         """Test digest generation with no messages."""
         agent = DigestAgent()
         
         digest = await agent.generate_digest(
-            user_id="user_1",
-            tenant_id="tenant_1",
+            tenant_context=tenant_context,
             messages=[],
             date="2026-01-03"
         )
@@ -146,36 +157,33 @@ class TestDigestAgent:
         assert len(digest.categories) == 0
     
     @pytest.mark.asyncio
-    async def test_user_isolation_validation(self, sample_messages):
+    async def test_user_isolation_validation(self, tenant_context, sample_messages):
         """Test that user isolation is enforced."""
         agent = DigestAgent()
         
         # Valid case - all messages for user_1
         digest = await agent.generate_digest(
-            user_id="user_1",
-            tenant_id="tenant_1",
+            tenant_context=tenant_context,
             messages=sample_messages
         )
-        assert digest.user_id == "user_1"
+        assert digest.user_id == tenant_context.user_id
         
         # Invalid case - message from different user
         invalid_msg = sample_messages[0].model_copy(update={"user_id": "user_2"})
         
         with pytest.raises(ValueError, match="Cross-user data"):
             await agent.generate_digest(
-                user_id="user_1",
-                tenant_id="tenant_1",
+                tenant_context=tenant_context,
                 messages=[invalid_msg]
             )
     
     @pytest.mark.asyncio
-    async def test_whatsapp_text_formatting_with_messages(self, sample_messages):
+    async def test_whatsapp_text_formatting_with_messages(self, tenant_context, sample_messages):
         """Test WhatsApp formatting with messages."""
         agent = DigestAgent()
         
         digest = await agent.generate_digest(
-            user_id="user_1",
-            tenant_id="tenant_1",
+            tenant_context=tenant_context,
             messages=sample_messages
         )
         

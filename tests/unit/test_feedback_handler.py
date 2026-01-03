@@ -16,6 +16,8 @@ import os
 from datetime import datetime
 from unittest.mock import patch, AsyncMock, MagicMock
 
+from jaiminho_notificacoes.core.tenant import TenantContext
+
 # Set AWS region before importing boto3-dependent modules
 os.environ['AWS_REGION'] = 'us-east-1'
 
@@ -25,11 +27,16 @@ def mock_tenant_middleware():
     """Mock TenantIsolationMiddleware to avoid boto3 initialization."""
     with patch('jaiminho_notificacoes.processing.feedback_handler.TenantIsolationMiddleware') as mock:
         mock_instance = MagicMock()
-        mock_instance.validate_tenant_context = MagicMock()
+        tenant_context = TenantContext(
+            tenant_id='tenant_1',
+            user_id='user_1',
+            instance_id='instance-abc',
+            phone_number='5511999999999',
+            status='active'
+        )
+        mock_instance.validate_and_resolve = AsyncMock(return_value=(tenant_context, {}))
         mock.return_value = mock_instance
         yield mock
-
-
 from jaiminho_notificacoes.processing.feedback_handler import (
     SendPulseWebhookValidator,
     SendPulseButtonType,
@@ -55,7 +62,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -73,7 +80,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -105,7 +112,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                # Missing user_id and tenant_id
+                # Missing wapi_instance_id
             }
         }
         valid, error = SendPulseWebhookValidator.validate_event(event)
@@ -122,7 +129,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -140,7 +147,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -158,7 +165,7 @@ class TestSendPulseWebhookValidator:
             'timestamp': 0,  # Invalid
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -212,23 +219,22 @@ class TestUserFeedbackProcessor:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
 
-        with patch.object(processor.middleware, 'validate_tenant_context'):
-            with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = True
+        with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = True
 
-                result = await processor.process_feedback(event)
+            result = await processor.process_feedback(event)
 
-                assert result.success is True
-                assert result.feedback_id is not None
-                assert result.feedback_type == FeedbackType.IMPORTANT.value
-                assert result.message_id == 'jaiminho_456'
-                assert result.user_id == 'user_1'
-                assert result.statistics_updated is True
+            assert result.success is True
+            assert result.feedback_id is not None
+            assert result.feedback_type == FeedbackType.IMPORTANT.value
+            assert result.message_id == 'jaiminho_456'
+            assert result.user_id == 'user_1'
+            assert result.statistics_updated is True
 
     @pytest.mark.asyncio
     async def test_process_feedback_not_important(self):
@@ -243,19 +249,18 @@ class TestUserFeedbackProcessor:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_2',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
 
-        with patch.object(processor.middleware, 'validate_tenant_context'):
-            with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = True
+        with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = True
 
-                result = await processor.process_feedback(event)
+            result = await processor.process_feedback(event)
 
-                assert result.success is True
-                assert result.feedback_type == FeedbackType.NOT_IMPORTANT.value
+            assert result.success is True
+            assert result.feedback_type == FeedbackType.NOT_IMPORTANT.value
 
     @pytest.mark.asyncio
     async def test_process_feedback_invalid_event(self):
@@ -286,19 +291,18 @@ class TestUserFeedbackProcessor:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
 
-        with patch.object(processor.middleware, 'validate_tenant_context'):
-            with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = False
+        with patch.object(processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = False
 
-                result = await processor.process_feedback(event)
+            result = await processor.process_feedback(event)
 
-                assert result.success is True
-                assert result.statistics_updated is False
+            assert result.success is True
+            assert result.statistics_updated is False
 
     @pytest.mark.asyncio
     async def test_process_feedback_exception_handling(self):
@@ -313,7 +317,7 @@ class TestUserFeedbackProcessor:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
@@ -362,19 +366,18 @@ class TestFeedbackHandler:
             'timestamp': 1705340400,
             'metadata': {
                 'message_id': 'jaiminho_456',
-                'user_id': 'user_1',
+                'wapi_instance_id': 'instance-abc',
                 'tenant_id': 'tenant_1'
             }
         }
 
-        with patch.object(handler.processor.middleware, 'validate_tenant_context'):
-            with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = True
+        with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = True
 
-                result = await handler.handle_webhook(event)
+            result = await handler.handle_webhook(event)
 
-                assert result.success is True
-                assert result.feedback_id is not None
+            assert result.success is True
+            assert result.feedback_id is not None
 
     @pytest.mark.asyncio
     async def test_handle_batch_webhooks(self):
@@ -390,21 +393,20 @@ class TestFeedbackHandler:
                 'timestamp': 1705340400 + i,
                 'metadata': {
                     'message_id': f'jaiminho_{i}',
-                    'user_id': f'user_{i}',
+                    'wapi_instance_id': f'instance-{i}',
                     'tenant_id': 'tenant_1'
                 }
             }
             for i in range(3)
         ]
 
-        with patch.object(handler.processor.middleware, 'validate_tenant_context'):
-            with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
-                mock_update.return_value = True
+        with patch.object(handler.processor, '_update_learning_agent', new_callable=AsyncMock) as mock_update:
+            mock_update.return_value = True
 
-                results = await handler.handle_batch_webhooks(events)
+            results = await handler.handle_batch_webhooks(events)
 
-                assert len(results) == 3
-                assert all(r.success for r in results)
+            assert len(results) == 3
+            assert all(r.success for r in results)
 
 
 class TestSingleton:

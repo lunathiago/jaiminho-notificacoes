@@ -6,6 +6,7 @@ from typing import List, Dict, Optional
 from collections import defaultdict
 
 from jaiminho_notificacoes.core.logger import TenantContextLogger
+from jaiminho_notificacoes.core.tenant import TenantContext
 from jaiminho_notificacoes.persistence.models import NormalizedMessage
 
 
@@ -137,8 +138,7 @@ class DigestAgent:
     
     async def generate_digest(
         self,
-        user_id: str,
-        tenant_id: str,
+        tenant_context: TenantContext,
         messages: List[NormalizedMessage],
         date: Optional[str] = None
     ) -> UserDigest:
@@ -146,8 +146,7 @@ class DigestAgent:
         Generate daily digest for a specific user.
         
         Args:
-            user_id: User identifier
-            tenant_id: Tenant identifier
+            tenant_context: Verified tenant context resolved internally
             messages: List of messages (already filtered for this user)
             date: Date for digest (default: today)
         
@@ -155,15 +154,18 @@ class DigestAgent:
             UserDigest with formatted content
         
         Security:
-            - Only processes messages for the specified user_id
+            - Only processes messages for the tenant/user pair in tenant_context
             - No cross-user data is accessed
-            - Validates tenant_id matches
+            - Validates tenant isolation against W-API derived context
         """
-        self.logger.set_context(tenant_id=tenant_id, user_id=user_id)
+        self.logger.set_context(
+            tenant_id=tenant_context.tenant_id,
+            user_id=tenant_context.user_id
+        )
         
         try:
             # Validate all messages belong to this user
-            self._validate_user_isolation(user_id, tenant_id, messages)
+            self._validate_user_isolation(tenant_context, messages)
             
             # Use today if date not specified
             if date is None:
@@ -193,8 +195,8 @@ class DigestAgent:
             
             # Create user digest
             digest = UserDigest(
-                user_id=user_id,
-                tenant_id=tenant_id,
+                user_id=tenant_context.user_id,
+                tenant_id=tenant_context.tenant_id,
                 date=date,
                 total_messages=len(messages),
                 categories=category_digests
@@ -202,7 +204,7 @@ class DigestAgent:
             
             self.logger.info(
                 "Digest generated",
-                user_id=user_id,
+                user_id=tenant_context.user_id,
                 total_messages=digest.total_messages,
                 category_count=len(digest.categories)
             )
@@ -213,7 +215,7 @@ class DigestAgent:
             self.logger.error(
                 "Error generating digest",
                 error=str(e),
-                user_id=user_id
+                user_id=tenant_context.user_id
             )
             raise
         finally:
@@ -221,8 +223,7 @@ class DigestAgent:
     
     def _validate_user_isolation(
         self,
-        user_id: str,
-        tenant_id: str,
+        tenant_context: TenantContext,
         messages: List[NormalizedMessage]
     ):
         """
@@ -232,21 +233,21 @@ class DigestAgent:
             ValueError: If any message belongs to a different user
         """
         for msg in messages:
-            if msg.user_id != user_id:
+            if msg.user_id != tenant_context.user_id:
                 raise ValueError(
                     f"Message {msg.message_id} belongs to user {msg.user_id}, "
-                    f"not {user_id}. Cross-user data access not allowed."
+                    f"not {tenant_context.user_id}. Cross-user data access not allowed."
                 )
-            if msg.tenant_id != tenant_id:
+            if msg.tenant_id != tenant_context.tenant_id:
                 raise ValueError(
                     f"Message {msg.message_id} belongs to tenant {msg.tenant_id}, "
-                    f"not {tenant_id}. Cross-tenant data access not allowed."
+                    f"not {tenant_context.tenant_id}. Cross-tenant data access not allowed."
                 )
         
         self.logger.debug(
             "User isolation validated",
-            user_id=user_id,
-            tenant_id=tenant_id,
+            user_id=tenant_context.user_id,
+            tenant_id=tenant_context.tenant_id,
             message_count=len(messages)
         )
     

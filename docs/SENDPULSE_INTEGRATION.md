@@ -507,11 +507,14 @@ from jaiminho_notificacoes.core.tenant import TenantIsolationMiddleware
 
 middleware = TenantIsolationMiddleware()
 
-# Valida a cada operação
-middleware.validate_tenant_context({
-    'tenant_id': event['tenant_id'],
-    'user_id': event['user_id']
-})
+# Ao receber feedback dos botões, resolva o contexto via W-API instance
+tenant_context, errors = await middleware.validate_and_resolve(
+  instance_id=metadata['wapi_instance_id'],
+  payload={'tenant_id': metadata.get('tenant_id')}
+)
+
+if not tenant_context:
+  raise SecurityError(errors)
 ```
 
 ### Credenciais

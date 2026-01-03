@@ -37,8 +37,8 @@ O SendPulse envia os eventos de botão como webhooks HTTP POST:
   "timestamp": 1705340400,
   "metadata": {
     "message_id": "jaiminho_notif_456",
-    "user_id": "user_1",
-    "tenant_id": "tenant_1"
+        "wapi_instance_id": "instance-abc",
+        "tenant_id": "tenant_1"
   }
 }
 ```
@@ -54,8 +54,8 @@ O SendPulse envia os eventos de botão como webhooks HTTP POST:
 | `button_reply.title` | string | Título exibido no botão |
 | `timestamp` | integer | Unix timestamp da resposta |
 | `metadata.message_id` | string | ID da mensagem original (Jaiminho) |
-| `metadata.user_id` | string | ID do usuário |
-| `metadata.tenant_id` | string | ID do tenant |
+| `metadata.wapi_instance_id` | string | ID verificado da instância W-API |
+| `metadata.tenant_id` | string | ID do tenant (opcional, usado apenas como hint) |
 
 ## Componentes
 
@@ -506,13 +506,16 @@ StatisticsUpdateFailures > 5 in 10 minutes
 
 ### Validação de Tenant
 
-Todos os pedidos são validados contra `tenant_id` na metadata:
+Todos os webhooks resolvem o contexto via `wapi_instance_id` antes de qualquer processamento:
 
 ```python
-self.middleware.validate_tenant_context({
-    'tenant_id': tenant_id,
-    'user_id': user_id
-})
+tenant_context, errors = await self.middleware.validate_and_resolve(
+    instance_id=metadata['wapi_instance_id'],
+    payload={'tenant_id': metadata.get('tenant_id')}
+)
+
+if not tenant_context:
+    raise SecurityError(errors)
 ```
 
 ### Validação de Webhook

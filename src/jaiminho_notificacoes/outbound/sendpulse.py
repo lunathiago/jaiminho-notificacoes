@@ -26,7 +26,6 @@ import boto3
 from abc import ABC, abstractmethod
 
 from jaiminho_notificacoes.core.logger import TenantContextLogger
-from jaiminho_notificacoes.core.tenant import TenantIsolationMiddleware
 
 
 logger = TenantContextLogger(__name__)
@@ -39,11 +38,17 @@ DYNAMODB_USER_PROFILES_TABLE = os.getenv('DYNAMODB_USER_PROFILES_TABLE', 'jaimin
 _secrets_manager = None
 _dynamodb = None
 _cloudwatch = None
+# Backwards-compatible aliases for test patches
+secrets_manager = None
+dynamodb = None
+cloudwatch = None
 
 
 def get_secrets_manager():
     """Get or create SecretsManager client."""
-    global _secrets_manager
+    global _secrets_manager, secrets_manager
+    if secrets_manager is not None:
+        return secrets_manager
     if _secrets_manager is None:
         _secrets_manager = boto3.client('secretsmanager')
     return _secrets_manager
@@ -51,7 +56,9 @@ def get_secrets_manager():
 
 def get_dynamodb():
     """Get or create DynamoDB resource."""
-    global _dynamodb
+    global _dynamodb, dynamodb
+    if dynamodb is not None:
+        return dynamodb
     if _dynamodb is None:
         _dynamodb = boto3.resource('dynamodb')
     return _dynamodb
@@ -59,7 +66,9 @@ def get_dynamodb():
 
 def get_cloudwatch():
     """Get or create CloudWatch client."""
-    global _cloudwatch
+    global _cloudwatch, cloudwatch
+    if cloudwatch is not None:
+        return cloudwatch
     if _cloudwatch is None:
         _cloudwatch = boto3.client('cloudwatch')
     return _cloudwatch
@@ -124,6 +133,7 @@ class SendPulseMessage:
     message_type: NotificationType
     tenant_id: str
     user_id: str
+    wapi_instance_id: Optional[str] = None
     message_id: Optional[str] = None  # For tracking
     template_name: Optional[SendPulseTemplate] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -134,6 +144,9 @@ class SendPulseMessage:
         # Validate tenant/user
         if not self.tenant_id or not self.user_id:
             return False, "tenant_id and user_id required"
+
+        if self.message_type == NotificationType.FEEDBACK and not self.wapi_instance_id:
+            return False, "wapi_instance_id required for feedback messages"
 
         # Validate phone
         if not self._validate_phone(self.recipient_phone):
@@ -158,6 +171,7 @@ class SendPulseMessage:
             'message_type': self.message_type.value,
             'tenant_id': self.tenant_id,
             'user_id': self.user_id,
+            'wapi_instance_id': self.wapi_instance_id,
             'message_id': self.message_id,
             'template_name': self.template_name.value if self.template_name else None,
             'metadata': self.metadata,
@@ -330,7 +344,6 @@ class SendPulseClient(ABC):
         """Initialize client."""
         self.authenticator = SendPulseAuthenticator()
         self.resolver = SendPulseUserResolver()
-        self.middleware = TenantIsolationMiddleware()
 
     async def _make_request(
         self,
@@ -407,13 +420,6 @@ class SendPulseUrgentNotifier(SendPulseClient):
                 logger.warning(f"Invalid message: {error}")
                 return SendPulseResponse(success=False, error=error)
 
-            # Validate tenant context
-            tenant_context = {
-                'tenant_id': message.tenant_id,
-                'user_id': message.user_id
-            }
-            self.middleware.validate_tenant_context(tenant_context)
-
             logger.info(
                 "Sending urgent notification",
                 tenant_id=message.tenant_id,
@@ -431,12 +437,14 @@ class SendPulseUrgentNotifier(SendPulseClient):
                 'priority': 'HIGH',
                 'metadata': {
                     'message_id': message.message_id,
-                    'user_id': message.user_id,
                     'tenant_id': message.tenant_id,
                     'notification_type': 'urgent',
                     'timestamp': message.created_at,
                 }
             }
+
+            if message.wapi_instance_id:
+                payload['metadata']['wapi_instance_id'] = message.wapi_instance_id
 
             # Add media if present
             if message.content.media_url:
@@ -536,13 +544,6 @@ class SendPulseDigestSender(SendPulseClient):
             if not valid:
                 return SendPulseResponse(success=False, error=error)
 
-            # Validate tenant context
-            tenant_context = {
-                'tenant_id': message.tenant_id,
-                'user_id': message.user_id
-            }
-            self.middleware.validate_tenant_context(tenant_context)
-
             logger.info(
                 "Sending daily digest",
                 tenant_id=message.tenant_id,
@@ -560,12 +561,14 @@ class SendPulseDigestSender(SendPulseClient):
                 'schedule_time': message.metadata.get('schedule_time'),
                 'metadata': {
                     'message_id': message.message_id,
-                    'user_id': message.user_id,
                     'tenant_id': message.tenant_id,
                     'notification_type': 'digest',
                     'timestamp': message.created_at,
                 }
             }
+
+            if message.wapi_instance_id:
+                payload['metadata']['wapi_instance_id'] = message.wapi_instance_id
 
             # Send
             response = await self._make_request('POST', 'v1/whatsapp/send', payload)
@@ -627,13 +630,6 @@ class SendPulseFeedbackSender(SendPulseClient):
                     error="Feedback message requires buttons"
                 )
 
-            # Validate tenant
-            tenant_context = {
-                'tenant_id': message.tenant_id,
-                'user_id': message.user_id
-            }
-            self.middleware.validate_tenant_context(tenant_context)
-
             logger.info(
                 "Sending feedback message",
                 tenant_id=message.tenant_id,
@@ -664,8 +660,8 @@ class SendPulseFeedbackSender(SendPulseClient):
                 },
                 'metadata': {
                     'message_id': message.message_id,
-                    'user_id': message.user_id,
                     'tenant_id': message.tenant_id,
+                    'wapi_instance_id': message.wapi_instance_id,
                     'notification_type': 'feedback',
                     'timestamp': message.created_at,
                 }
@@ -741,7 +737,6 @@ class SendPulseManager:
     def __init__(self):
         """Initialize manager."""
         self.resolver = SendPulseUserResolver()
-        self.middleware = TenantIsolationMiddleware()
 
     async def send_notification(
         self,
@@ -752,7 +747,8 @@ class SendPulseManager:
         recipient_phone: Optional[str] = None,
         buttons: Optional[List[SendPulseButton]] = None,
         media_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
+        wapi_instance_id: Optional[str] = None
     ) -> SendPulseResponse:
         """
         Send notification via SendPulse.
@@ -766,17 +762,12 @@ class SendPulseManager:
             buttons: Interactive buttons (optional)
             media_url: Media URL (optional)
             metadata: Additional metadata (optional)
+            wapi_instance_id: Resolved W-API instance ID (required for feedback)
 
         Returns:
             SendPulseResponse
         """
         try:
-            # Validate tenant context
-            self.middleware.validate_tenant_context({
-                'tenant_id': tenant_id,
-                'user_id': user_id
-            })
-
             # Resolve phone if not provided
             if not recipient_phone:
                 recipient_phone = await self.resolver.resolve_phone(tenant_id, user_id)
@@ -792,6 +783,20 @@ class SendPulseManager:
                     error="Could not resolve recipient phone number"
                 )
 
+            metadata = metadata.copy() if metadata else {}
+            instance_id = wapi_instance_id or metadata.pop('wapi_instance_id', None)
+
+            if message_type == NotificationType.FEEDBACK and not instance_id:
+                logger.error(
+                    "Feedback notification missing wapi_instance_id",
+                    tenant_id=tenant_id,
+                    user_id=user_id
+                )
+                return SendPulseResponse(
+                    success=False,
+                    error="wapi_instance_id required for feedback notifications"
+                )
+
             # Create message
             content = SendPulseContent(
                 text=content_text,
@@ -805,7 +810,8 @@ class SendPulseManager:
                 message_type=message_type,
                 tenant_id=tenant_id,
                 user_id=user_id,
-                metadata=metadata or {}
+                wapi_instance_id=instance_id,
+                metadata=metadata
             )
 
             # Get appropriate sender

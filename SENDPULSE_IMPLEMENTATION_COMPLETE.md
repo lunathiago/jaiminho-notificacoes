@@ -184,7 +184,8 @@ response = await manager.send_notification(
     user_id='user_1',
     content_text='Is this important?',
     message_type=NotificationType.FEEDBACK,
-    buttons=buttons
+    buttons=buttons,
+    wapi_instance_id='instance-abc'
 )
 ```
 
@@ -214,7 +215,8 @@ for response in responses:
     "buttons": [
         {"id": "yes", "title": "Yes", "action": "reply"},
         {"id": "no", "title": "No", "action": "reply"}
-    ]
+    ],
+    "wapi_instance_id": "instance-abc"
 }
 ```
 

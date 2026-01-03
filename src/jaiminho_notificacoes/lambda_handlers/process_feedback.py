@@ -27,8 +27,8 @@ LEARNING_AGENT_ENABLED = os.getenv('LEARNING_AGENT_ENABLED', 'true').lower() == 
 
 class FeedbackRequest(BaseModel):
     """Feedback webhook request schema."""
-    tenant_id: str = Field(..., min_length=1)
-    user_id: str = Field(..., min_length=1)
+    tenant_id: Optional[str] = Field(None, min_length=1)
+    wapi_instance_id: str = Field(..., min_length=1)
     message_id: str = Field(..., min_length=1)
     sender_phone: str = Field(..., pattern="^[0-9]{10,15}$")
     sender_name: Optional[str] = None
@@ -47,7 +47,7 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     {
         "body": {
             "tenant_id": "tenant-123",
-            "user_id": "user-456",
+            "wapi_instance_id": "instance-abc",
             "message_id": "msg-789",
             "sender_phone": "5511999999999",
             "sender_name": "João",
@@ -111,15 +111,19 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Validate tenant context
         middleware = TenantIsolationMiddleware()
-        tenant_context = {
-            "tenant_id": request.tenant_id,
-            "user_id": request.user_id
-        }
+        tenant_payload = {'tenant_id': request.tenant_id} if request.tenant_id else None
+        tenant_context, validation_errors = await middleware.validate_and_resolve(
+            instance_id=request.wapi_instance_id,
+            sender_phone=request.sender_phone,
+            payload=tenant_payload
+        )
 
-        try:
-            middleware.validate_tenant_context(tenant_context)
-        except Exception as e:
-            logger.error(f"Tenant context validation failed: {e}")
+        if not tenant_context:
+            logger.error(
+                "Tenant context resolution failed",
+                instance_id=request.wapi_instance_id,
+                validation_errors=validation_errors
+            )
             return {
                 "statusCode": 403,
                 "body": json.dumps({
@@ -127,6 +131,27 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     "message": "Tenant validation failed"
                 })
             }
+
+        if request.tenant_id and request.tenant_id != tenant_context.tenant_id:
+            logger.error(
+                "Tenant mismatch between payload and resolved context",
+                payload_tenant=request.tenant_id,
+                resolved_tenant=tenant_context.tenant_id,
+                instance_id=tenant_context.instance_id
+            )
+            return {
+                "statusCode": 403,
+                "body": json.dumps({
+                    "success": False,
+                    "message": "Tenant mismatch"
+                })
+            }
+
+        logger.set_context(
+            tenant_id=tenant_context.tenant_id,
+            user_id=tenant_context.user_id,
+            instance_id=tenant_context.instance_id
+        )
 
         # Process feedback
         learning_agent = LearningAgent()
@@ -138,8 +163,7 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
 
         success, message = await learning_agent.process_feedback(
-            tenant_id=request.tenant_id,
-            user_id=request.user_id,
+            tenant_context=tenant_context,
             message_id=request.message_id,
             sender_phone=request.sender_phone,
             sender_name=request.sender_name,
@@ -170,7 +194,7 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'Value': 1,
                         'Unit': 'Count',
                         'Dimensions': [
-                            {'Name': 'TenantId', 'Value': request.tenant_id},
+                            {'Name': 'TenantId', 'Value': tenant_context.tenant_id},
                             {'Name': 'FeedbackType', 'Value': request.feedback_type},
                             {'Name': 'WasInterrupted', 'Value': str(request.was_interrupted)},
                         ]
@@ -182,8 +206,8 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(
             "Feedback processed successfully",
-            tenant_id=request.tenant_id,
-            user_id=request.user_id,
+            tenant_id=tenant_context.tenant_id,
+            user_id=tenant_context.user_id,
             feedback_type=request.feedback_type
         )
 
@@ -205,6 +229,8 @@ async def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "message": "Internal server error"
             })
         }
+    finally:
+        logger.clear_context()
 
 
 # For local testing
@@ -214,7 +240,7 @@ if __name__ == "__main__":
     test_event = {
         "body": {
             "tenant_id": "tenant-123",
-            "user_id": "user-456",
+            "wapi_instance_id": "instance-abc",
             "message_id": "msg-789",
             "sender_phone": "5511999999999",
             "sender_name": "João Silva",
