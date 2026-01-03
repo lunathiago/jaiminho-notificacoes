@@ -90,10 +90,15 @@ Primary Key:
   - Sort Key: wapi_instance_id (String)
 
 Global Secondary Index:
-  - Name: InstanceLookupIndex
-  - Hash Key: wapi_instance_id
-  - Range Key: user_id
-  - Projection: ALL
+  - InstanceLookupIndex
+    - Hash Key: wapi_instance_id
+    - Range Key: user_id
+    - Projection: ALL
+    - Purpose: resolve ownership via instance id
+  - PhoneLookupIndex
+    - Hash Key: phone_fingerprint
+    - Projection: ALL
+    - Purpose: enforce unique sender phone ownership
 
 Point-in-time Recovery: Enabled in production
 Server-side Encryption: Enabled
@@ -105,7 +110,10 @@ Server-side Encryption: Enabled
 ```bash
 DYNAMODB_WAPI_INSTANCES_TABLE=jaiminho-{env}-wapi-instances
 DYNAMODB_WAPI_INSTANCE_GSI=InstanceLookupIndex
+DYNAMODB_WAPI_PHONE_GSI=PhoneLookupIndex
 ```
+
+> **Security Note:** Existing records must have `phone_fingerprint` backfilled before deploying the new isolation logic. Use the administrative migration script or a one-off job to populate the normalized digits-only value for every stored phone number.
 
 ### IAM Permissions
 
@@ -137,10 +145,12 @@ When processing a webhook from W-API:
 4. Check instance status (active/suspended)
    ↓
 5. Validate phone number ownership
-   ↓
-6. Create TenantContext with verified (tenant_id, user_id)
-   ↓
-7. All downstream operations scoped to this context
+  ↓
+6. Enforce unique phone ownership across tenants
+  ↓
+7. Create TenantContext with verified (tenant_id, user_id)
+  ↓
+8. All downstream operations scoped to this context
 ```
 
 **Security guarantees:**

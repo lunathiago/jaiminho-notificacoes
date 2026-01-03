@@ -32,6 +32,11 @@ resource "aws_dynamodb_table" "messages" {
     type = "S"
   }
 
+  attribute {
+    name = "phone_fingerprint"
+    type = "S"
+  }
+
   # Global Secondary Index for user-based queries
   global_secondary_index {
     name            = "UserIndex"
@@ -202,10 +207,21 @@ resource "aws_dynamodb_table" "wapi_instances" {
     type = "S"
   }
 
+  attribute {
+    name = "phone_fingerprint"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "InstanceLookupIndex"
     hash_key        = "wapi_instance_id"
     range_key       = "user_id"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "PhoneLookupIndex"
+    hash_key        = "phone_fingerprint"
     projection_type = "ALL"
   }
 

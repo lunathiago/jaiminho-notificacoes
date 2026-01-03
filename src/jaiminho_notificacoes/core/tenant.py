@@ -36,6 +36,13 @@ class TenantResolver:
         self.rds_client = None  # Initialized on demand
         self._cache: Dict[str, TenantContext] = {}
         self.instances_repo = WAPIInstanceRepository()
+
+    @staticmethod
+    def _normalize_phone(phone: Optional[str]) -> str:
+        """Normalize phone number to digits only for consistent comparisons."""
+        if not phone:
+            return ""
+        return "".join(ch for ch in phone if ch.isdigit())
     
     def _hash_api_key(self, api_key: str) -> str:
         """Hash API key for secure storage comparison."""
@@ -159,29 +166,48 @@ class TenantResolver:
         Returns:
             True if phone belongs to tenant, False otherwise
         """
-        # Extract phone from WhatsApp JID format
-        clean_phone = sender_phone.split('@')[0] if '@' in sender_phone else sender_phone
-        
-        # Check if it matches the instance's registered phone
-        instance_phone = tenant_context.phone_number.replace('+', '')
-        clean_instance_phone = instance_phone.split('@')[0] if '@' in instance_phone else instance_phone
-        
-        # For group messages, we need additional validation
-        # For now, we validate that the message comes from the instance's phone
-        is_valid = clean_phone == clean_instance_phone
-        
-        if not is_valid:
+        sanitized_sender = self._normalize_phone(sender_phone)
+        sanitized_expected = self._normalize_phone(tenant_context.phone_number)
+
+        if not sanitized_sender or not sanitized_expected:
+            logger.security_validation_failed(
+                reason='Phone ownership validation failed - unable to normalize phone',
+                instance_id=tenant_context.instance_id,
+                tenant_id=tenant_context.tenant_id,
+                details={
+                    'sender_phone_raw': sender_phone,
+                    'expected_phone_raw': tenant_context.phone_number
+                }
+            )
+            return False
+
+        if sanitized_sender != sanitized_expected:
             logger.security_validation_failed(
                 reason='Phone ownership validation failed',
                 instance_id=tenant_context.instance_id,
                 tenant_id=tenant_context.tenant_id,
                 details={
-                    'sender_phone': clean_phone,
-                    'expected_phone': clean_instance_phone
+                    'sender_phone': sanitized_sender,
+                    'expected_phone': sanitized_expected
                 }
             )
-        
-        return is_valid
+            return False
+
+        owner_record = self.instances_repo.get_owner_by_phone(sanitized_sender)
+        if owner_record and owner_record.user_id != tenant_context.user_id:
+            logger.security_validation_failed(
+                reason='Phone number assigned to different user',
+                instance_id=tenant_context.instance_id,
+                tenant_id=tenant_context.tenant_id,
+                details={
+                    'sender_phone': sanitized_sender,
+                    'owner_user_id': owner_record.user_id,
+                    'owner_tenant_id': owner_record.tenant_id,
+                }
+            )
+            return False
+
+        return True
     
     def detect_cross_tenant_attempt(
         self,
@@ -215,13 +241,13 @@ class TenantResolver:
             # User ID should NEVER come from payload
             logger.security_event(
                 event_type='suspicious_payload',
-                severity='medium',
-                message='Payload contains user_id field (should be resolved internally)',
+                severity='high',
+                message='Payload contains user_id field (blocked)',
                 tenant_id=verified_tenant_id,
                 details={'payload_user': payload_user}
             )
-            # Not blocking, but logged for investigation
-        
+            return True
+
         return False
 
 
@@ -277,7 +303,7 @@ class TenantIsolationMiddleware:
         # Step 4: Detect cross-tenant attempts
         if payload:
             if self.resolver.detect_cross_tenant_attempt(payload, tenant_context.tenant_id):
-                errors['cross_tenant'] = 'Cross-tenant access attempt detected'
+                errors['payload_forbidden_fields'] = 'Payload attempted to override tenant/user context'
                 return None, errors
         
         return tenant_context, {}

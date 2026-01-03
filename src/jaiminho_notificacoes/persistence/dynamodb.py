@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import boto3
-from boto3.dynamodb.conditions import Key
+from boto3.dynamodb.conditions import Attr, Key
 from botocore.exceptions import ClientError
 
 from ..core.logger import get_logger
@@ -28,8 +28,16 @@ class WAPIInstanceRepository:
 			raise ValueError("DYNAMODB_WAPI_INSTANCES_TABLE environment variable not set")
 
 		self.instance_lookup_index = os.getenv("DYNAMODB_WAPI_INSTANCE_GSI", "InstanceLookupIndex")
+		self.phone_lookup_index = os.getenv("DYNAMODB_WAPI_PHONE_GSI", "PhoneLookupIndex")
 		self.dynamodb = boto3.resource("dynamodb")
 		self.table = self.dynamodb.Table(self.table_name)
+
+	@staticmethod
+	def _normalize_phone(phone_number: str) -> str:
+		"""Normalize phone numbers to digits-only fingerprint for lookups."""
+		if not phone_number:
+			return ""
+		return "".join(ch for ch in phone_number if ch.isdigit())
 
 	@staticmethod
 	def _serialize(instance: WAPIInstance) -> dict:
@@ -40,6 +48,7 @@ class WAPIInstanceRepository:
 			"wapi_instance_id": instance.wapi_instance_id,
 			"instance_name": instance.instance_name,
 			"phone_number": instance.phone_number,
+			"phone_fingerprint": WAPIInstanceRepository._normalize_phone(instance.phone_number),
 			"status": instance.status,
 			"api_key_hash": instance.api_key_hash,
 			"created_at": _iso(instance.created_at),
@@ -88,6 +97,47 @@ class WAPIInstanceRepository:
 		"""Fetch instance ownership by instance id (used during webhook resolution)."""
 		return self._query_instance_lookup(wapi_instance_id)
 
+	def get_owner_by_phone(self, phone_number: str) -> Optional[WAPIInstance]:
+		"""Fetch instance ownership by normalized phone number."""
+		normalized = self._normalize_phone(phone_number)
+		if not normalized:
+			return None
+
+		try:
+			response = self.table.query(
+				IndexName=self.phone_lookup_index,
+				KeyConditionExpression=Key("phone_fingerprint").eq(normalized),
+				Limit=1,
+			)
+		except ClientError as exc:
+			logger.error(
+				"Failed to query phone lookup index",
+				phone=phone_number,
+				details={"error": str(exc)},
+			)
+			return None
+
+		items = response.get("Items", [])
+		if items:
+			return self._deserialize(items[0])
+
+		# Fallback for legacy records without fingerprint populated
+		try:
+			scan_response = self.table.scan(
+				FilterExpression=Attr("phone_number").contains(normalized),
+				Limit=1,
+			)
+		except ClientError as exc:
+			logger.error(
+				"Failed to scan for phone owner",
+				phone=phone_number,
+				details={"error": str(exc)},
+			)
+			return None
+
+		scan_items = scan_response.get("Items", [])
+		return self._deserialize(scan_items[0]) if scan_items else None
+
 	def get_for_user(self, user_id: str, wapi_instance_id: str) -> Optional[WAPIInstance]:
 		"""Fetch instance scoped to a user to prevent cross-tenant reads."""
 		try:
@@ -130,6 +180,10 @@ class WAPIInstanceRepository:
 				raise ValueError("wapi_instance_id already assigned to a different user")
 			if existing.tenant_id != instance.tenant_id:
 				raise ValueError("wapi_instance_id already bound to a different tenant")
+
+		phone_owner = self.get_owner_by_phone(instance.phone_number)
+		if phone_owner and phone_owner.user_id != instance.user_id:
+			raise ValueError("phone_number already assigned to a different user")
 
 		now = datetime.utcnow()
 		instance.created_at = instance.created_at or now
