@@ -92,6 +92,20 @@ resource "aws_iam_role_policy" "lambda_orchestrator_dynamodb" {
             "dynamodb:LeadingKeys" = ["$${aws:PrincipalTag/tenant_id}"]
           }
         }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.wapi_instances.arn,
+          "${aws_dynamodb_table.wapi_instances.arn}/index/*"
+        ]
       }
     ]
   })
@@ -334,6 +348,20 @@ resource "aws_iam_role_policy" "lambda_digest_dynamodb" {
           "${aws_dynamodb_table.digests.arn}/index/*",
           aws_dynamodb_table.tenants.arn
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.wapi_instances.arn,
+          "${aws_dynamodb_table.wapi_instances.arn}/index/*"
+        ]
       }
     ]
   })
@@ -431,6 +459,20 @@ resource "aws_iam_role_policy" "lambda_feedback_dynamodb" {
           "${aws_dynamodb_table.messages.arn}/index/*",
           aws_dynamodb_table.digests.arn,
           "${aws_dynamodb_table.digests.arn}/index/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.wapi_instances.arn,
+          "${aws_dynamodb_table.wapi_instances.arn}/index/*"
         ]
       }
     ]

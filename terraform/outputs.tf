@@ -122,6 +122,11 @@ output "dynamodb_tenants_table" {
   value       = aws_dynamodb_table.tenants.name
 }
 
+output "dynamodb_wapi_instances_table" {
+  description = "Nome da tabela DynamoDB de instâncias W-API"
+  value       = aws_dynamodb_table.wapi_instances.name
+}
+
 # Secrets Manager
 output "secret_db_master_arn" {
   description = "ARN do secret com credenciais do RDS"

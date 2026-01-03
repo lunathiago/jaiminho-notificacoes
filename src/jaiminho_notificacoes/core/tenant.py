@@ -1,12 +1,10 @@
 """Tenant isolation and context management."""
 
 import hashlib
-import os
 from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
-import boto3
-from botocore.exceptions import ClientError
 
+from ..persistence.dynamodb import WAPIInstanceRepository
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -35,16 +33,9 @@ class TenantResolver:
     """Resolve and validate tenant information from instance_id."""
     
     def __init__(self):
-        self.dynamodb = boto3.resource('dynamodb')
         self.rds_client = None  # Initialized on demand
         self._cache: Dict[str, TenantContext] = {}
-        
-        # Table names from environment
-        self.tenants_table_name = os.getenv('DYNAMODB_TENANTS_TABLE')
-        if not self.tenants_table_name:
-            raise ValueError("DYNAMODB_TENANTS_TABLE environment variable not set")
-        
-        self.tenants_table = self.dynamodb.Table(self.tenants_table_name)
+        self.instances_repo = WAPIInstanceRepository()
     
     def _hash_api_key(self, api_key: str) -> str:
         """Hash API key for secure storage comparison."""
@@ -89,25 +80,20 @@ class TenantResolver:
             return cached
         
         try:
-            # Query DynamoDB for instance mapping
-            response = self.tenants_table.get_item(
-                Key={'instance_id': instance_id}
-            )
-            
-            if 'Item' not in response:
+            instance_record = self.instances_repo.get_by_instance_id(instance_id)
+
+            if not instance_record:
                 logger.invalid_instance(
                     instance_id=instance_id,
                     reason='Instance not found in database'
                 )
                 return None
-            
-            item = response['Item']
-            
+
             # Validate API key if provided
             if api_key:
                 api_key_hash = self._hash_api_key(api_key)
-                stored_hash = item.get('api_key_hash')
-                
+                stored_hash = instance_record.api_key_hash
+
                 if not stored_hash or api_key_hash != stored_hash:
                     logger.security_validation_failed(
                         reason='API key mismatch',
@@ -115,44 +101,37 @@ class TenantResolver:
                         details={'provided_hash': api_key_hash[:16]}
                     )
                     return None
-            
+
             # Check status
-            status = item.get('status', 'unknown')
+            status = instance_record.status
             if status not in ('active', 'suspended'):
                 logger.invalid_instance(
                     instance_id=instance_id,
                     reason=f'Invalid status: {status}'
                 )
                 return None
-            
+
             # Create verified tenant context
             context = TenantContext(
-                tenant_id=item['tenant_id'],
-                user_id=item['user_id'],
-                instance_id=instance_id,
-                phone_number=item.get('phone_number', ''),
+                tenant_id=instance_record.tenant_id,
+                user_id=instance_record.user_id,
+                instance_id=instance_record.wapi_instance_id,
+                phone_number=instance_record.phone_number,
                 status=status
             )
-            
+
             # Cache for future requests
             self._add_to_cache(instance_id, context)
-            
+
             logger.info(
                 f"Tenant resolved successfully",
                 tenant_id=context.tenant_id,
                 user_id=context.user_id,
                 instance_id=instance_id
             )
-            
+
             return context
-            
-        except ClientError as e:
-            logger.error(
-                f"DynamoDB error resolving tenant: {str(e)}",
-                instance_id=instance_id,
-                details={'error': str(e)}
-            )
-            return None
+
         except Exception as e:
             logger.error(
                 f"Unexpected error resolving tenant: {str(e)}",

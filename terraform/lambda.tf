@@ -43,6 +43,7 @@ resource "aws_lambda_function" "message_orchestrator" {
       SQS_QUEUE_URL          = aws_sqs_queue.message_buffer.url
       DYNAMODB_MESSAGES_TABLE = aws_dynamodb_table.messages.name
       DYNAMODB_TENANTS_TABLE  = aws_dynamodb_table.tenants.name
+      DYNAMODB_WAPI_INSTANCES_TABLE = aws_dynamodb_table.wapi_instances.name
       AWS_REGION             = var.aws_region
       LOG_LEVEL              = var.environment == "prod" ? "INFO" : "DEBUG"
     }
@@ -157,6 +158,7 @@ resource "aws_lambda_function" "daily_digest" {
       DYNAMODB_MESSAGES_TABLE  = aws_dynamodb_table.messages.name
       DYNAMODB_DIGESTS_TABLE   = aws_dynamodb_table.digests.name
       DYNAMODB_TENANTS_TABLE   = aws_dynamodb_table.tenants.name
+      DYNAMODB_WAPI_INSTANCES_TABLE = aws_dynamodb_table.wapi_instances.name
       AWS_REGION               = var.aws_region
       LOG_LEVEL                = var.environment == "prod" ? "INFO" : "DEBUG"
     }
@@ -247,6 +249,7 @@ resource "aws_lambda_function" "feedback_handler" {
       WEBHOOK_AUTH_SECRET      = aws_secretsmanager_secret.webhook_auth.arn
       DYNAMODB_MESSAGES_TABLE  = aws_dynamodb_table.messages.name
       DYNAMODB_DIGESTS_TABLE   = aws_dynamodb_table.digests.name
+      DYNAMODB_WAPI_INSTANCES_TABLE = aws_dynamodb_table.wapi_instances.name
       AWS_REGION               = var.aws_region
       LOG_LEVEL                = var.environment == "prod" ? "INFO" : "DEBUG"
     }

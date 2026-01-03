@@ -142,17 +142,17 @@ class NormalizedMessage(BaseModel):
 
 # Dataclasses for Database Storage
 @dataclass
-class TenantInstance:
-    """Tenant W-API instance mapping."""
+class WAPIInstance:
+    """User-scoped W-API instance mapping with strict ownership."""
     tenant_id: str
     user_id: str
-    instance_id: str
+    wapi_instance_id: str
     instance_name: str
     phone_number: str
     status: str  # active, suspended, disabled
     api_key_hash: str
-    created_at: datetime
-    updated_at: datetime
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

@@ -285,7 +285,7 @@ assert 'unauthorized' in response['body']
 
 ```bash
 # Obrigatórias
-DYNAMODB_TENANTS_TABLE=jaiminho-dev-tenants
+DYNAMODB_WAPI_INSTANCES_TABLE=jaiminho-dev-wapi-instances
 SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/.../message-buffer
 DYNAMODB_MESSAGES_TABLE=jaiminho-dev-messages
 

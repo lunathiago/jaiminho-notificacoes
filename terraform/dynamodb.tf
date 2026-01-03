@@ -175,6 +175,53 @@ resource "aws_dynamodb_table" "tenants" {
   })
 }
 
+# W-API Instances Table - enforces one-to-one mapping between instances and users
+resource "aws_dynamodb_table" "wapi_instances" {
+  name         = "${local.name_prefix}-wapi-instances"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "user_id"
+  range_key    = "wapi_instance_id"
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "wapi_instance_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "tenant_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
+  global_secondary_index {
+    name            = "InstanceLookupIndex"
+    hash_key        = "wapi_instance_id"
+    range_key       = "user_id"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = var.environment == "prod"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-wapi-instances"
+  })
+}
+
 # User Feedback Table - stores binary feedback on message urgency
 resource "aws_dynamodb_table" "feedback" {
   name           = "${local.name_prefix}-feedback"
