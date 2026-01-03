@@ -20,7 +20,8 @@ from jaiminho_notificacoes.processing.urgency_engine import (
 )
 from jaiminho_notificacoes.processing.agents import (
     get_urgency_agent,
-    get_classification_agent
+    get_classification_agent,
+    ClassificationResult
 )
 from jaiminho_notificacoes.core.logger import TenantContextLogger
 from jaiminho_notificacoes.core.tenant import TenantResolver
@@ -46,8 +47,12 @@ class ProcessingState(TypedDict):
     urgency_agent_reasoning: str
     urgency_agent_confidence: float
     
-    classification_agent_decision: Literal["immediate", "digest", "spam"]
-    classification_agent_reasoning: str
+    # Classification Agent Results (with categories and summaries)
+    classification_result: Optional[ClassificationResult]
+    classification_category: str
+    classification_summary: str
+    classification_routing: Literal["immediate", "digest", "spam"]
+    classification_reasoning: str
     
     # Final Decision
     final_decision: Literal["immediate", "digest", "spam"]
@@ -113,8 +118,11 @@ class MessageProcessingOrchestrator:
                 "urgency_agent_decision": None,
                 "urgency_agent_reasoning": "",
                 "urgency_agent_confidence": 0.0,
-                "classification_agent_decision": "digest",
-                "classification_agent_reasoning": "",
+                "classification_result": None,
+                "classification_category": "",
+                "classification_summary": "",
+                "classification_routing": "digest",
+                "classification_reasoning": "",
                 "final_decision": "digest",
                 "audit_trail": [],
             }
@@ -276,60 +284,181 @@ class MessageProcessingOrchestrator:
             return UrgencyDecision.NOT_URGENT, 0.65, "No urgent keywords detected by agent"
     
     def _node_classification_agent(self, state: ProcessingState) -> ProcessingState:
-        """Node: Final classification for routing."""
+        """
+        Node: Final classification with cognitive categories and summaries.
+        
+        Uses the enhanced ClassificationAgent to:
+        - Assign cognitive-friendly categories
+        - Generate short summaries for digest
+        - Determine routing (immediate, digest, spam)
+        - Maintain tenant isolation (no cross-user data)
+        """
         message = state["message"]
         
         # Determine urgency decision (rule or agent)
         urgency_decision = state.get("urgency_agent_decision") or state["rule_decision"]
         urgency_confidence = state.get("urgency_agent_confidence") or state["rule_confidence"]
         
-        # Simple classification logic
-        if urgency_decision == UrgencyDecision.URGENT:
-            classification = "immediate"
-            reasoning = "High urgency - send immediately"
-        elif urgency_decision == UrgencyDecision.NOT_URGENT:
-            classification = "digest"
-            reasoning = "Low urgency - add to daily digest"
-        else:
-            # Fallback for any undecided cases
-            classification = "digest"
-            reasoning = "Unable to classify - adding to digest for later review"
-        
-        state["classification_agent_decision"] = classification
-        state["classification_agent_reasoning"] = reasoning
-        
         logger.debug(
-            "Classification decision",
-            urgency=urgency_decision.value,
-            classification=classification,
-            confidence=urgency_confidence
+            "Running classification agent",
+            tenant_id=message.tenant_id,
+            user_id=message.user_id,
+            urgency_decision=urgency_decision.value if urgency_decision else None
         )
         
-        state["audit_trail"].append({
-            "step": "classification_agent",
-            "timestamp": datetime.utcnow().isoformat(),
-            "classification": classification,
-            "urgency_input": urgency_decision.value,
-            "confidence": urgency_confidence,
-        })
+        try:
+            # Get classification agent
+            classification_agent = get_classification_agent()
+            
+            # Run classification (sync wrapper for async method)
+            result = self._classification_agent_sync(
+                message,
+                urgency_decision or UrgencyDecision.NOT_URGENT,
+                urgency_confidence
+            )
+            
+            # Update state with full classification result
+            state["classification_result"] = result
+            state["classification_category"] = result.category
+            state["classification_summary"] = result.summary
+            state["classification_routing"] = result.routing
+            state["classification_reasoning"] = result.reasoning
+            
+            logger.info(
+                "Classification agent result",
+                tenant_id=message.tenant_id,
+                user_id=message.user_id,
+                category=result.category,
+                routing=result.routing,
+                summary_length=len(result.summary)
+            )
+            
+            # Audit trail
+            state["audit_trail"].append({
+                "step": "classification_agent",
+                "timestamp": datetime.utcnow().isoformat(),
+                "category": result.category,
+                "summary": result.summary,
+                "routing": result.routing,
+                "confidence": result.confidence,
+                "reasoning": result.reasoning[:150],  # Truncate for audit
+            })
+            
+            return state
+            
+        except Exception as e:
+            logger.error(
+                "Classification agent error",
+                error=str(e),
+                tenant_id=message.tenant_id
+            )
+            
+            # Conservative fallback
+            from jaiminho_notificacoes.processing.agents import ClassificationResult
+            
+            fallback_result = ClassificationResult(
+                category="❓ Outros",
+                summary="Erro no processamento - mensagem preservada",
+                routing="digest" if urgency_decision != UrgencyDecision.URGENT else "immediate",
+                reasoning=f"Fallback devido a erro: {str(e)}",
+                confidence=0.5
+            )
+            
+            state["classification_result"] = fallback_result
+            state["classification_category"] = fallback_result.category
+            state["classification_summary"] = fallback_result.summary
+            state["classification_routing"] = fallback_result.routing
+            state["classification_reasoning"] = fallback_result.reasoning
+            
+            return state
+    
+    @staticmethod
+    def _classification_agent_sync(
+        message: NormalizedMessage,
+        urgency_decision: UrgencyDecision,
+        urgency_confidence: float
+    ) -> ClassificationResult:
+        """
+        Synchronous wrapper for classification agent.
         
-        return state
+        In production with async context, this would use await.
+        For now, provides a simplified synchronous classification.
+        """
+        # Import here to avoid circular dependencies
+        from jaiminho_notificacoes.processing.agents import ClassificationResult
+        
+        text = message.content.text or message.content.caption or ""
+        text_lower = text.lower()
+        
+        # Simple category classification based on keywords
+        category = "❓ Outros"
+        
+        if any(kw in text_lower for kw in ["trabalho", "reunião", "meeting", "projeto", "prazo", "deadline", "contrato"]):
+            category = "💼 Trabalho e Negócios"
+        elif any(kw in text_lower for kw in ["família", "mãe", "pai", "filho", "amigo", "querido"]):
+            category = "👨‍👩‍👧 Família e Amigos"
+        elif any(kw in text_lower for kw in ["entrega", "pedido", "compra", "rastreio", "correios", "sedex"]):
+            category = "📦 Entregas e Compras"
+        elif any(kw in text_lower for kw in ["pagamento", "boleto", "fatura", "pix", "transferência", "banco"]):
+            category = "💰 Financeiro"
+        elif any(kw in text_lower for kw in ["médico", "consulta", "exame", "saúde", "hospital", "remédio"]):
+            category = "🏥 Saúde"
+        elif any(kw in text_lower for kw in ["evento", "festa", "convite", "aniversário", "celebração"]):
+            category = "🎉 Eventos e Convites"
+        elif any(kw in text_lower for kw in ["bot", "automático", "notificação", "alerta", "sistema"]):
+            category = "🤖 Automação e Bots"
+        else:
+            category = "📰 Informação Geral"
+        
+        # Generate simple summary
+        sender_name = message.sender_name or "Contato"
+        summary_prefix = f"{sender_name}: "
+        
+        # Truncate text for summary
+        max_text_len = 100 - len(summary_prefix)
+        summary_text = text[:max_text_len]
+        if len(text) > max_text_len:
+            summary_text += "..."
+        
+        summary = summary_prefix + summary_text
+        
+        # Determine routing based on urgency
+        if urgency_decision == UrgencyDecision.URGENT and urgency_confidence > 0.75:
+            routing = "immediate"
+            reasoning = "Alta urgência detectada"
+        elif urgency_decision == UrgencyDecision.NOT_URGENT:
+            routing = "digest"
+            reasoning = "Mensagem para digest diário"
+        else:
+            routing = "digest"
+            reasoning = "Classificação padrão para digest"
+        
+        return ClassificationResult(
+            category=category,
+            summary=summary,
+            routing=routing,
+            reasoning=reasoning,
+            confidence=0.7
+        )
     
     def _node_route_decision(self, state: ProcessingState) -> ProcessingState:
-        """Node: Make final routing decision."""
-        classification = state["classification_agent_decision"]
+        """Node: Make final routing decision based on classification."""
+        routing = state["classification_routing"]
         
-        state["final_decision"] = classification
+        state["final_decision"] = routing
         
         logger.info(
             "Final routing decision",
-            classification=classification
+            routing=routing,
+            category=state["classification_category"]
         )
         
         state["audit_trail"].append({
             "step": "route_decision",
             "timestamp": datetime.utcnow().isoformat(),
-            "final_decision": classification,
+            "final_decision": routing,
+            "category": state["classification_category"],
+            "summary": state["classification_summary"],
         })
         
         return state

@@ -87,9 +87,11 @@ class TestOrchestratorFlow:
         assert state2["urgency_agent_decision"] == UrgencyDecision.URGENT
         assert state2["urgency_agent_reasoning"] == "Skipped - rule engine was decisive"
         
-        # Classification should be immediate
+        # Classification should be immediate (updated to use new fields)
         state3 = orchestrator._node_classification_agent(state2)
-        assert state3["classification_agent_decision"] == "immediate"
+        assert state3["classification_routing"] == "immediate"
+        assert state3["classification_category"] is not None
+        assert state3["classification_summary"] is not None
         
         # Route decision
         state4 = orchestrator._node_route_decision(state3)
