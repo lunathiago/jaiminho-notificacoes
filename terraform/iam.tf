@@ -160,6 +160,128 @@ resource "aws_iam_policy" "lambda_orchestrator_sqs" {
 }
 
 # -----------------------------------------------------------------------------
+# Feedback Handler Lambda Role
+# -----------------------------------------------------------------------------
+resource "aws_iam_role" "lambda_feedback" {
+  name_prefix = "${local.name_prefix}-lambda-feedback-"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = merge(local.common_tags, {
+    Name     = "${local.name_prefix}-lambda-feedback-role"
+    Function = "FeedbackProcessing"
+  })
+}
+
+# Basic execution policy for feedback handler
+resource "aws_iam_role_policy_attachment" "lambda_feedback_basic" {
+  role       = aws_iam_role.lambda_feedback.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# DynamoDB access for feedback handler
+resource "aws_iam_role_policy" "lambda_feedback_dynamodb" {
+  name_prefix = "${local.name_prefix}-feedback-dynamodb-"
+  role        = aws_iam_role.lambda_feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:PutItem",
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ]
+        Resource = [
+          aws_dynamodb_table.feedback.arn,
+          "${aws_dynamodb_table.feedback.arn}/index/*",
+          aws_dynamodb_table.interruption_stats.arn,
+          "${aws_dynamodb_table.interruption_stats.arn}/index/*"
+        ]
+      }
+    ]
+  })
+}
+
+# CloudWatch metrics for feedback handler
+resource "aws_iam_role_policy" "lambda_feedback_cloudwatch" {
+  name_prefix = "${local.name_prefix}-feedback-cloudwatch-"
+  role        = aws_iam_role.lambda_feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData"
+        ]
+        Resource = "*"
+        Condition = {
+          "StringEquals" = {
+            "cloudwatch:namespace" = "JaininhoNotificacoes/LearningAgent"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# Secrets Manager access for feedback handler
+resource "aws_iam_role_policy" "lambda_feedback_secrets" {
+  name_prefix = "${local.name_prefix}-feedback-secrets-"
+  role        = aws_iam_role.lambda_feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.app_config.arn
+        ]
+      }
+    ]
+  })
+}
+
+# RDS access for feedback handler (if needed to enrich feedback)
+resource "aws_iam_role_policy" "lambda_feedback_rds" {
+  name_prefix = "${local.name_prefix}-feedback-rds-"
+  role        = aws_iam_role.lambda_feedback.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "rds-db:connect"
+        ]
+        Resource = "arn:aws:rds-db:${var.aws_region}:*:dbuser:${aws_db_instance.main.resource_id}/jaiminho_app"
+      }
+    ]
+  })
+}
+
+# -----------------------------------------------------------------------------
 # Daily Digest Lambda Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "lambda_digest" {

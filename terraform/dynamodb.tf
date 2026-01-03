@@ -175,6 +175,125 @@ resource "aws_dynamodb_table" "tenants" {
   })
 }
 
+# User Feedback Table - stores binary feedback on message urgency
+resource "aws_dynamodb_table" "feedback" {
+  name           = "${local.name_prefix}-feedback"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "PK"
+  range_key      = "SK"
+
+  attribute {
+    name = "PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "SK"
+    type = "S"
+  }
+
+  attribute {
+    name = "tenant_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "sender_phone"
+    type = "S"
+  }
+
+  # GSI for querying feedback by tenant and user
+  global_secondary_index {
+    name            = "TenantUserIndex"
+    hash_key        = "tenant_id"
+    range_key       = "user_id"
+    projection_type = "ALL"
+  }
+
+  # GSI for querying feedback by sender
+  global_secondary_index {
+    name            = "SenderIndex"
+    hash_key        = "user_id"
+    range_key       = "sender_phone"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = var.environment == "prod"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-feedback"
+  })
+}
+
+# Interruption Statistics Table - aggregated statistics per sender/category/user
+resource "aws_dynamodb_table" "interruption_stats" {
+  name           = "${local.name_prefix}-interruption-stats"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "PK"
+  range_key      = "SK"
+
+  attribute {
+    name = "PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "SK"
+    type = "S"
+  }
+
+  attribute {
+    name = "tenant_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "user_id"
+    type = "S"
+  }
+
+  # GSI for querying stats by tenant and user
+  global_secondary_index {
+    name            = "TenantUserIndex"
+    hash_key        = "tenant_id"
+    range_key       = "user_id"
+    projection_type = "ALL"
+  }
+
+  point_in_time_recovery {
+    enabled = var.environment == "prod"
+  }
+
+  server_side_encryption {
+    enabled = true
+  }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "${local.name_prefix}-interruption-stats"
+  })
+}
+
 # CloudWatch Alarms for DynamoDB
 resource "aws_cloudwatch_metric_alarm" "dynamodb_user_errors" {
   alarm_name          = "${local.name_prefix}-dynamodb-user-errors"

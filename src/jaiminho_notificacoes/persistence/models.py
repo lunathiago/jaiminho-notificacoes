@@ -211,3 +211,60 @@ class ProcessingResult:
     llm_used: bool
     audit_trail: List[Dict[str, Any]]
     processed_at: str
+
+
+# Learning Agent Models
+
+
+class FeedbackType(str, Enum):
+    """Binary feedback on message urgency."""
+    IMPORTANT = "important"
+    NOT_IMPORTANT = "not_important"
+
+
+@dataclass
+class UserFeedbackRecord:
+    """User feedback on message urgency (for database storage)."""
+    feedback_id: str
+    tenant_id: str
+    user_id: str
+    message_id: str
+    sender_phone: str
+    sender_name: Optional[str]
+    feedback_type: str  # "important" or "not_important"
+    message_category: Optional[str]
+    was_interrupted: bool
+    user_response_time_seconds: Optional[float]
+    feedback_timestamp: int
+    feedback_reason: Optional[str]
+    created_at: datetime = field(default_factory=datetime.utcnow)
+
+
+@dataclass
+class InterruptionStatisticsRecord:
+    """Interruption statistics for sender/category/user level."""
+    tenant_id: str
+    user_id: str
+    sender_phone: Optional[str] = None  # None = category or user level
+    category: Optional[str] = None  # None = sender or user level
+
+    # Feedback counters
+    total_feedback_count: int = 0
+    important_count: int = 0
+    not_important_count: int = 0
+
+    # System accuracy metrics
+    correct_interrupts: int = 0
+    incorrect_interrupts: int = 0
+    correct_digests: int = 0
+    missed_urgent: int = 0
+
+    # Response time statistics
+    avg_response_time_seconds: float = 0.0
+    total_response_time_seconds: float = 0.0
+    response_count: int = 0
+
+    # Time window
+    window_start_timestamp: int = 0
+    window_end_timestamp: int = 0
+    last_updated: datetime = field(default_factory=datetime.utcnow)
