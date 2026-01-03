@@ -44,7 +44,7 @@ def base_message():
             platform="wapi",
             instance_id="test-instance"
         ),
-        metadata=MessageMetadata(is_group=False, from_me=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False, from_me=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
             validation_passed=True,
@@ -172,6 +172,7 @@ class TestOrchestratorFlow:
     
     def test_group_message_not_urgent(self, orchestrator, base_message):
         """Test that group messages are always NOT_URGENT."""
+        base_message.metadata.chat_type = "group"
         base_message.metadata.is_group = True
         base_message.content.text = "Importante! Reunião urgente!"
         

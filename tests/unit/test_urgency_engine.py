@@ -35,7 +35,7 @@ def base_message():
             platform="wapi",
             instance_id="test-instance"
         ),
-        metadata=MessageMetadata(is_group=False, from_me=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False, from_me=False),
         security=MessageSecurity(
             validated_at=datetime.utcnow().isoformat(),
             validation_passed=True,
@@ -113,6 +113,7 @@ class TestUrgencyRuleEngine:
     def test_group_message_not_urgent(self, base_message):
         """Test that group messages are classified as not urgent."""
         engine = UrgencyRuleEngine()
+        base_message.metadata.chat_type = "group"
         base_message.metadata.is_group = True
         base_message.content.text = "Reunião amanhã às 10h"
         

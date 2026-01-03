@@ -99,6 +99,10 @@
     "metadata": {
       "type": "object",
       "properties": {
+        "chat_type": {
+          "type": "string",
+          "description": "W-API chat type (e.g., group, individual)"
+        },
         "is_group": {
           "type": "boolean"
         },

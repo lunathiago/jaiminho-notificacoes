@@ -55,8 +55,16 @@ class WAPIEventData(BaseModel):
     """W-API event data."""
     key: WAPIMessageKey
     message: WAPIMessageContent
+    chatType: Optional[str] = None
     messageTimestamp: Optional[int] = None
     pushName: Optional[str] = None
+
+    @property
+    def chat_type(self) -> Optional[str]:
+        """Expose chat_type in snake_case for internal consumers."""
+        if self.chatType is None:
+            return None
+        return self.chatType.strip().lower()
 
 
 class WAPIWebhookEvent(BaseModel):
@@ -92,12 +100,20 @@ class MessageContent(BaseModel):
 
 
 class MessageMetadata(BaseModel):
-    """Message metadata."""
+    """Message metadata derived from W-API semantics."""
+    chat_type: Optional[str] = None
     is_group: bool = False
     group_id: Optional[str] = None
     from_me: bool = False
     forwarded: bool = False
     quoted_message_id: Optional[str] = None
+
+    @validator('chat_type')
+    def _normalize_chat_type(cls, value: Optional[str]) -> Optional[str]:
+        """Normalize chat_type to lowercase for consistent comparisons."""
+        if value is None:
+            return None
+        return value.strip().lower()
 
 
 class MessageSecurity(BaseModel):
@@ -169,6 +185,7 @@ class MessageRecord:
     timestamp: int
     source_platform: str
     source_instance_id: str
+    chat_type: Optional[str]
     is_group: bool
     group_id: Optional[str]
     from_me: bool

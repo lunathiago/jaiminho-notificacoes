@@ -125,6 +125,18 @@ class MessageNormalizer:
         
         # Remove any non-numeric characters
         return ''.join(filter(str.isdigit, phone))
+
+    @staticmethod
+    def _resolve_chat_type(event: WAPIWebhookEvent) -> Optional[str]:
+        """Resolve chat type using W-API semantics, falling back gently if absent."""
+        chat_type = event.data.chat_type
+        if chat_type:
+            return chat_type
+
+        remote_jid = event.data.key.remoteJid
+        if remote_jid.endswith('@g.us'):
+            return 'group'
+        return 'individual'
     
     @staticmethod
     def normalize(
@@ -174,8 +186,10 @@ class MessageNormalizer:
             )
             
             # Metadata
-            is_group = key.remoteJid.endswith('@g.us')
+            chat_type = MessageNormalizer._resolve_chat_type(event)
+            is_group = chat_type == 'group'
             metadata = MessageMetadata(
+                chat_type=chat_type,
                 is_group=is_group,
                 group_id=key.remoteJid if is_group else None,
                 from_me=key.fromMe,

@@ -35,7 +35,7 @@ def sample_message():
             platform="wapi",
             instance_id="instance_1"
         ),
-        metadata=MessageMetadata(is_group=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False),
         security=MessageSecurity(
             validated_at=datetime.utcnow().isoformat(),
             validation_passed=True,
@@ -119,7 +119,7 @@ class TestClassificationAgent:
             content=MessageContent(text="Reunião de trabalho urgente sobre o projeto"),
             timestamp=1609459200,
             source=MessageSource(platform="wapi", instance_id="inst_1"),
-            metadata=MessageMetadata(is_group=False),
+            metadata=MessageMetadata(chat_type="individual", is_group=False),
             security=MessageSecurity(
                 validated_at=datetime.utcnow().isoformat(),
                 validation_passed=True,
@@ -153,7 +153,7 @@ class TestClassificationAgent:
             content=MessageContent(text="Seu pedido foi enviado! Código de rastreio: BR123456789"),
             timestamp=1609459200,
             source=MessageSource(platform="wapi", instance_id="inst_1"),
-            metadata=MessageMetadata(is_group=False),
+            metadata=MessageMetadata(chat_type="individual", is_group=False),
             security=MessageSecurity(
                 validated_at=datetime.utcnow().isoformat(),
                 validation_passed=True,

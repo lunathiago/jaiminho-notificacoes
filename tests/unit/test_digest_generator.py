@@ -52,7 +52,7 @@ def sample_messages(tenant_context):
         content=MessageContent(text="Reunião amanhã às 10h"),
         timestamp=base_time,
         source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
-        metadata=MessageMetadata(is_group=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
             validation_passed=True,
@@ -77,7 +77,7 @@ def sample_messages(tenant_context):
         content=MessageContent(text="Seu pedido foi enviado"),
         timestamp=base_time + 3600,
         source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
-        metadata=MessageMetadata(is_group=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
             validation_passed=True,
@@ -101,7 +101,7 @@ def sample_messages(tenant_context):
         content=MessageContent(text="Tudo bem filho?"),
         timestamp=base_time + 7200,
         source=MessageSource(platform="wapi", instance_id=tenant_context.instance_id),
-        metadata=MessageMetadata(is_group=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
             validation_passed=True,

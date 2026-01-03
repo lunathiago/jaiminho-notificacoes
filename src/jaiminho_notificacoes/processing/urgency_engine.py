@@ -290,16 +290,25 @@ class UrgencyRuleEngine:
             f"Evaluating urgency for message: {message.message_id}",
             message_id=message.message_id,
             message_type=message_type_str,
+            chat_type=getattr(message.metadata, 'chat_type', None),
             has_text=bool(text)
         )
         
+        chat_type = (message.metadata.chat_type or "").lower() if hasattr(message.metadata, 'chat_type') else ""
+        is_group_message = chat_type == "group"
+
+        # Legacy fallback for migrated data
+        if not is_group_message and getattr(message.metadata, 'is_group', False):
+            is_group_message = True
+            chat_type = chat_type or "group"
+
         # Rule 1: Group messages are never urgent by default
-        if message.metadata.is_group:
+        if is_group_message:
             return self._create_match(
                 decision=UrgencyDecision.NOT_URGENT,
                 rule_name="group_message",
                 confidence=0.95,
-                reasoning="Group messages are not urgent by default"
+                reasoning="Group messages detected via chat_type are not urgent by default"
             )
         
         # Rule 2: Security keywords = urgent (check FIRST, highest priority)

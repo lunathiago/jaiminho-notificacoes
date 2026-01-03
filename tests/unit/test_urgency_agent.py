@@ -36,7 +36,7 @@ def base_message():
             platform="wapi",
             instance_id="test-instance"
         ),
-        metadata=MessageMetadata(is_group=False, from_me=False),
+        metadata=MessageMetadata(chat_type="individual", is_group=False, from_me=False),
         security=MessageSecurity(
             validated_at=datetime.utcnow().isoformat(),
             validation_passed=True,
@@ -150,6 +150,7 @@ class TestUrgencyAgent:
     async def test_group_message_not_urgent(self, urgency_agent, base_message, historical_data_empty):
         """Group messages should not be urgent by default."""
         base_message.content.text = "Urgente! Precisamos conversar agora!"
+        base_message.metadata.chat_type = "group"
         base_message.metadata.is_group = True
         
         result = await urgency_agent.run(base_message, historical_data_empty)

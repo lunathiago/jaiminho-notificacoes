@@ -57,7 +57,7 @@ def create_test_message(
         content=MessageContent(text=text),
         timestamp=int(time.time()),
         source=MessageSource(platform="wapi", instance_id="inst_123"),
-        metadata=MessageMetadata(is_group=is_group),
+        metadata=MessageMetadata(chat_type="group" if is_group else "individual", is_group=is_group),
         security=MessageSecurity(
             validated_at=datetime.now().isoformat(),
             validation_passed=True,
