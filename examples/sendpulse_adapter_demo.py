@@ -312,12 +312,11 @@ async def example_error_handling():
             'expect_error': True
         },
         {
-            'name': 'Invalid phone format',
+            'name': 'Missing user_id for phone resolution',
             'params': {
                 'tenant_id': 'acme_corp',
-                'user_id': 'user_test',
-                'content_text': 'Test',
-                'recipient_phone': '123'  # Too short
+                'user_id': '',  # Empty user_id prevents phone resolution
+                'content_text': 'Test'
             },
             'expect_error': True
         },

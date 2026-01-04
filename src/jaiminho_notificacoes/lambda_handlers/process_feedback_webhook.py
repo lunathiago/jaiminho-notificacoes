@@ -1,11 +1,37 @@
 """Lambda handler for processing SendPulse feedback webhooks.
 
-This handler:
-1. Receives webhook events from SendPulse
-2. Validates and parses button responses
-3. Routes to FeedbackHandler for processing
-4. Updates Learning Agent statistics
-5. Returns 200 OK for acknowledgment
+This handler receives button click events from SendPulse and validates user feedback.
+Feedback is essential for validating interruption decisions (urgent/digest).
+
+Flow:
+1. SendPulse sends notification with feedback buttons (Important/Not Important)
+2. User clicks button in their WhatsApp client
+3. SendPulse webhook received here with button response
+4. FeedbackHandler processes and validates the feedback
+5. Learning Agent updates interruption statistics
+6. Urgency Agent uses feedback to improve future decisions
+
+Event structure (from SendPulse):
+{
+    "event": "message.reaction",
+    "recipient": "+554899999999",
+    "message_id": "sendpulse_msg_123",
+    "button_reply": {
+        "id": "important",
+        "title": "Important"
+    },
+    "timestamp": 1705340400,
+    "metadata": {
+        "message_id": "jaiminho_notif_456",
+        "wapi_instance_id": "instance-abc",
+        "tenant_id": "tenant_1"
+    }
+}
+
+Returns:
+- 200: Feedback processed successfully
+- 400: Invalid request/validation error
+- 500: Internal server error
 """
 
 import json
@@ -23,29 +49,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Process SendPulse feedback webhook.
 
-    Event structure (from SendPulse):
-    {
-        "event": "message.reaction",
-        "recipient": "+554899999999",
-        "message_id": "sendpulse_msg_123",
-        "button_reply": {
-            "id": "important",
-            "title": "Important"
-        },
-        "timestamp": 1705340400,
-        "metadata": {
-            "message_id": "jaiminho_notif_456",
-            "wapi_instance_id": "instance-abc",
-            "tenant_id": "tenant_1"
-        }
-    }
-
     Args:
         event: Lambda event
         context: Lambda context
 
     Returns:
-        HTTP response
+        HTTP response with status and result
     """
     try:
         logger.info(
@@ -54,13 +63,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             has_metadata='metadata' in event
         )
 
-        # Parse body if needed
+        # Parse body if needed (API Gateway wraps in body)
         if isinstance(event.get('body'), str):
             body = json.loads(event['body'])
         else:
             body = event
 
-        # Process feedback
+        # Process feedback asynchronously
         result = asyncio.run(
             get_feedback_handler().handle_webhook(body)
         )
@@ -117,3 +126,4 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'error': f'Internal server error: {str(e)}'
             })
         }
+

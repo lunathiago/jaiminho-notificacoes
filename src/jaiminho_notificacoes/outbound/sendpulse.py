@@ -1,13 +1,26 @@
 """SendPulse WhatsApp API adapter for outbound notifications.
 
-This module provides a comprehensive adapter for the SendPulse WhatsApp API.
+⚠️  CRITICAL DESIGN PRINCIPLE: SendPulse is OUTBOUND-ONLY.
 
-Responsibilities:
-- Send urgent notifications immediately
-- Send daily digests
-- Send interactive feedback buttons
-- Resolve destination phone number using user_id
-- Outbound-only (never receives messages)
+This module provides a comprehensive adapter for the SendPulse WhatsApp API.
+SendPulse NEVER receives webhooks or inbound messages. It is exclusively for:
+- Sending urgent notifications immediately
+- Sending daily digests
+- Sending interactive feedback buttons (responses come via W-API only)
+- Resolving destination phone number using user_id (ALWAYS via DynamoDB)
+
+Design Constraints:
+- ❌ NO inbound webhook processing
+- ❌ NO per-user SendPulse configuration
+- ✅ ONE WhatsApp number per tenant (from Secrets Manager)
+- ✅ Phone ALWAYS resolved via user_id from user profiles table
+- ✅ NO override/bypass mechanisms for phone number
+
+When users click feedback buttons:
+1. Response goes to user's W-API instance (not SendPulse)
+2. W-API webhook received by ingest_whatsapp.py
+3. FeedbackHandler processes with W-API context
+4. Learning Agent updated with statistics
 
 SendPulse API Reference:
 https://sendpulse.com/api/whatsapp
@@ -744,7 +757,6 @@ class SendPulseManager:
         user_id: str,
         content_text: str,
         message_type: NotificationType = NotificationType.URGENT,
-        recipient_phone: Optional[str] = None,
         buttons: Optional[List[SendPulseButton]] = None,
         media_url: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
@@ -753,12 +765,14 @@ class SendPulseManager:
         """
         Send notification via SendPulse.
 
+        ⚠️  SendPulse is OUTBOUND-ONLY. Phone number is ALWAYS resolved via user_id.
+        No per-user or per-tenant SendPulse phone configuration is allowed.
+
         Args:
             tenant_id: Tenant ID
             user_id: User ID
             content_text: Message text
             message_type: Type of notification
-            recipient_phone: Override phone (optional)
             buttons: Interactive buttons (optional)
             media_url: Media URL (optional)
             metadata: Additional metadata (optional)
@@ -766,11 +780,16 @@ class SendPulseManager:
 
         Returns:
             SendPulseResponse
+
+        Note:
+            Destination phone is always resolved from user profile via:
+            - DynamoDB user_profiles table
+            - tenant_id + user_id lookup
+            - whatsapp_phone field
         """
         try:
-            # Resolve phone if not provided
-            if not recipient_phone:
-                recipient_phone = await self.resolver.resolve_phone(tenant_id, user_id)
+            # MANDATORY: Resolve phone via user_id (no overrides allowed)
+            recipient_phone = await self.resolver.resolve_phone(tenant_id, user_id)
 
             if not recipient_phone:
                 logger.error(

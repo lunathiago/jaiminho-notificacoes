@@ -80,7 +80,8 @@ async def send_notification_async(event: Dict[str, Any]) -> Dict[str, Any]:
             notification_type = NotificationType.URGENT
 
         # Extract optional parameters
-        recipient_phone = event.get('recipient_phone')
+        # ⚠️  NOTE: recipient_phone override is NOT ALLOWED
+        # Phone MUST be resolved via user_id from DynamoDB user profiles
         media_url = event.get('media_url')
         metadata = event.get('metadata', {}) or {}
         wapi_instance_id = event.get('wapi_instance_id') or metadata.get('wapi_instance_id')
@@ -123,7 +124,6 @@ async def send_notification_async(event: Dict[str, Any]) -> Dict[str, Any]:
             user_id=user_id,
             content_text=content_text,
             message_type=notification_type,
-            recipient_phone=recipient_phone,
             buttons=buttons,
             media_url=media_url,
             metadata=metadata,
