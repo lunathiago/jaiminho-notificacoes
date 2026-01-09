@@ -21,7 +21,6 @@ resource "aws_cloudwatch_event_target" "daily_digest" {
 
   # Retry policy
   retry_policy {
-    maximum_event_age       = 86400 # 24 hours
     maximum_retry_attempts  = 2
   }
 
@@ -102,7 +101,6 @@ resource "aws_cloudwatch_event_target" "urgent_messages" {
   role_arn  = aws_iam_role.eventbridge_lambda.arn
 
   retry_policy {
-    maximum_event_age      = 3600 # 1 hour for urgent messages
     maximum_retry_attempts = 3
   }
 }

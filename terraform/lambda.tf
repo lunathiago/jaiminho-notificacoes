@@ -65,8 +65,7 @@ resource "aws_lambda_function" "message_orchestrator" {
   lifecycle {
     ignore_changes = [
       filename,
-      source_code_hash,
-      last_modified
+      source_code_hash
     ]
   }
 
@@ -178,8 +177,7 @@ resource "aws_lambda_function" "daily_digest" {
   lifecycle {
     ignore_changes = [
       filename,
-      source_code_hash,
-      last_modified
+      source_code_hash
     ]
   }
 
@@ -269,8 +267,7 @@ resource "aws_lambda_function" "feedback_handler" {
   lifecycle {
     ignore_changes = [
       filename,
-      source_code_hash,
-      last_modified
+      source_code_hash
     ]
   }
 
