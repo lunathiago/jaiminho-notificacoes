@@ -40,9 +40,13 @@ jobs:
 
       - name: Debug - Verificar Secrets
         run: |
-          echo "TERRAFORM_BACKEND_BUCKET: ${TERRAFORM_BACKEND_BUCKET}"
-          echo "AWS_ACCESS_KEY_ID length: ${#AWS_ACCESS_KEY_ID}"
-          echo "AWS_SECRET_ACCESS_KEY length: ${#AWS_SECRET_ACCESS_KEY}"
+          echo "Verificando secrets carregadas:"
+          [ -z "$AWS_ACCESS_KEY_ID" ] && echo "❌ AWS_ACCESS_KEY_ID está vazio" || echo "✅ AWS_ACCESS_KEY_ID carregado"
+          [ -z "$AWS_SECRET_ACCESS_KEY" ] && echo "❌ AWS_SECRET_ACCESS_KEY está vazio" || echo "✅ AWS_SECRET_ACCESS_KEY carregado"
+          [ -z "$TERRAFORM_BACKEND_BUCKET" ] && echo "❌ TERRAFORM_BACKEND_BUCKET está vazio" || echo "✅ TERRAFORM_BACKEND_BUCKET carregado (${TERRAFORM_BACKEND_BUCKET})"
+          [ -z "$DB_MASTER_PASSWORD" ] && echo "❌ DB_MASTER_PASSWORD está vazio" || echo "✅ DB_MASTER_PASSWORD carregado"
+          [ -z "$WAPI_API_KEY" ] && echo "❌ WAPI_API_KEY está vazio" || echo "✅ WAPI_API_KEY carregado"
+          [ -z "$SENDPULSE_API_KEY" ] && echo "❌ SENDPULSE_API_KEY está vazio" || echo "✅ SENDPULSE_API_KEY carregado"
 
       - name: Terraform Init
         working-directory: ./terraform
