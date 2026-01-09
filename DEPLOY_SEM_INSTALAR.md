@@ -1,4 +1,4 @@
-# 🚀 Deploy na AWS SEM Instalar Nada
+# 🚀 Deploy na AWS SEM Instalar Nada.
 
 **Método 100% na Nuvem** - Apenas GitHub, GitHub Actions e AWS Console
 
