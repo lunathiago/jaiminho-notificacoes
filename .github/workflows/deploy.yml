@@ -28,6 +28,7 @@ jobs:
   terraform:
     name: Terraform Plan & Apply
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - name: Checkout código
@@ -38,9 +39,22 @@ jobs:
         with:
           terraform_version: 1.7.0
 
+      - name: Debug - Verificar Secrets
+        run: |
+          echo "TERRAFORM_BACKEND_BUCKET: ${TERRAFORM_BACKEND_BUCKET}"
+          echo "AWS_ACCESS_KEY_ID length: ${#AWS_ACCESS_KEY_ID}"
+          echo "AWS_SECRET_ACCESS_KEY length: ${#AWS_SECRET_ACCESS_KEY}"
+
       - name: Terraform Init
         working-directory: ./terraform
+        env:
+          TF_LOG: DEBUG
         run: |
+          if [ -z "$TERRAFORM_BACKEND_BUCKET" ]; then
+            echo "ERROR: TERRAFORM_BACKEND_BUCKET está vazio!"
+            echo "Verifique se a secret está configurada no GitHub"
+            exit 1
+          fi
           terraform init \
             -backend-config="bucket=${TERRAFORM_BACKEND_BUCKET}" \
             -backend-config="key=prod/terraform.tfstate" \
