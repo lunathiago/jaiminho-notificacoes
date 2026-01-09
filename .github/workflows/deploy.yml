@@ -10,7 +10,7 @@ env:
   AWS_REGION: us-east-1
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  TERRAFORM_BACKEND_BUCKET: ${{ secrets.TERRAFORM_BACKEND_BUCKET || 'jaiminho-terraform-state-123456' }}
+  TERRAFORM_BACKEND_BUCKET: ${{ secrets.TERRAFORM_BACKEND_BUCKET }}
   TF_VAR_environment: prod
   TF_VAR_aws_region: us-east-1
   TF_VAR_project_name: jaiminho-notificacoes
@@ -28,7 +28,6 @@ jobs:
   terraform:
     name: Terraform Plan & Apply
     runs-on: ubuntu-latest
-    environment: production
     
     steps:
       - name: Checkout código
