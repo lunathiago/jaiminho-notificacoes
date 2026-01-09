@@ -10,7 +10,7 @@ env:
   AWS_REGION: us-east-1
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  TERRAFORM_BACKEND_BUCKET: ${{ secrets.TERRAFORM_BACKEND_BUCKET }}
+  TERRAFORM_BACKEND_BUCKET: ${{ secrets.TERRAFORM_BACKEND_BUCKET || 'jaiminho-terraform-state-123456' }}
   TF_VAR_environment: prod
   TF_VAR_aws_region: us-east-1
   TF_VAR_project_name: jaiminho-notificacoes
@@ -47,14 +47,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: ./terraform
-        env:
-          TF_LOG: DEBUG
         run: |
-          if [ -z "$TERRAFORM_BACKEND_BUCKET" ]; then
-            echo "ERROR: TERRAFORM_BACKEND_BUCKET está vazio!"
-            echo "Verifique se a secret está configurada no GitHub"
-            exit 1
-          fi
           terraform init \
             -backend-config="bucket=${TERRAFORM_BACKEND_BUCKET}" \
             -backend-config="key=prod/terraform.tfstate" \
