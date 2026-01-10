@@ -32,11 +32,6 @@ resource "aws_dynamodb_table" "messages" {
     type = "S"
   }
 
-  attribute {
-    name = "phone_fingerprint"
-    type = "S"
-  }
-
   # Global Secondary Index for user-based queries
   global_secondary_index {
     name            = "UserIndex"
@@ -197,19 +192,11 @@ resource "aws_dynamodb_table" "wapi_instances" {
     type = "S"
   }
 
-  attribute {
-    name = "tenant_id"
-    type = "S"
-  }
-
-  attribute {
-    name = "status"
-    type = "S"
-  }
-
-  attribute {
-    name = "phone_fingerprint"
-    type = "S"
+  global_secondary_index {
+    name            = "TenantIndex"
+    hash_key        = "tenant_id"
+    range_key       = "wapi_instance_id"
+    projection_type = "ALL"
   }
 
   global_secondary_index {
@@ -220,8 +207,9 @@ resource "aws_dynamodb_table" "wapi_instances" {
   }
 
   global_secondary_index {
-    name            = "PhoneLookupIndex"
-    hash_key        = "phone_fingerprint"
+    name            = "StatusIndex"
+    hash_key        = "status"
+    range_key       = "user_id"
     projection_type = "ALL"
   }
 

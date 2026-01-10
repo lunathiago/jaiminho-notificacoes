@@ -4,7 +4,7 @@
 # Message Orchestrator Lambda Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "lambda_orchestrator" {
-  name_prefix = "${local.name_prefix}-lambda-orchestrator-"
+  name_prefix = "orch-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -177,7 +177,7 @@ resource "aws_iam_policy" "lambda_orchestrator_sqs" {
 # Feedback Handler Lambda Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "lambda_feedback" {
-  name_prefix = "${local.name_prefix}-lambda-feedback-"
+  name_prefix = "fb-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -299,7 +299,7 @@ resource "aws_iam_role_policy" "lambda_feedback_rds" {
 # Daily Digest Lambda Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "lambda_digest" {
-  name_prefix = "${local.name_prefix}-lambda-digest-"
+  name_prefix = "dig-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -413,7 +413,7 @@ resource "aws_iam_role_policy" "lambda_digest_secrets" {
 # API Gateway CloudWatch Logging Role
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "api_gateway_cloudwatch" {
-  name_prefix = "${local.name_prefix}-apigw-cloudwatch-"
+  name_prefix = "apigw-cw-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -442,7 +442,7 @@ resource "aws_iam_role_policy_attachment" "api_gateway_cloudwatch" {
 # EventBridge Role for invoking Lambda
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "eventbridge_lambda" {
-  name_prefix = "${local.name_prefix}-eventbridge-lambda-"
+  name_prefix = "eb-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

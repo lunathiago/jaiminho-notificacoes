@@ -12,14 +12,14 @@ terraform {
     }
   }
 
-  backend "s3" {
-    # Configured via backend config file or CLI
-    # Example: terraform init -backend-config="bucket=my-terraform-state"
-    # Example: terraform init -backend-config="key=prod/terraform.tfstate"
-    # Example: terraform init -backend-config="region=us-east-1"
-    encrypt = true
-    # Require all three configs: bucket, key, and region
-  }
+  # backend "s3" {
+  #   # Configured via backend config file or CLI
+  #   # Example: terraform init -backend-config="bucket=my-terraform-state"
+  #   # Example: terraform init -backend-config="key=prod/terraform.tfstate"
+  #   # Example: terraform init -backend-config="region=us-east-1"
+  #   encrypt = true
+  #   # Require all three configs: bucket, key, and region
+  # }
 }
 
 provider "aws" {

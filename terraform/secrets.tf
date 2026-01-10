@@ -151,7 +151,7 @@ resource "aws_lambda_function" "secret_rotation" {
 # IAM Role for Secret Rotation Lambda
 resource "aws_iam_role" "secret_rotation" {
   count       = var.environment == "prod" ? 1 : 0
-  name_prefix = "${local.name_prefix}-secret-rotation-"
+  name_prefix = "sec-rot-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
