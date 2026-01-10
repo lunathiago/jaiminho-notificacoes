@@ -26,6 +26,10 @@ resource "aws_cloudwatch_log_group" "api_gateway" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-apigw-logs"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # API Gateway Stage

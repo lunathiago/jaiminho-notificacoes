@@ -121,6 +121,10 @@ resource "aws_cloudwatch_event_bus" "jaiminho" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-event-bus"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Archive for event replay (production only)

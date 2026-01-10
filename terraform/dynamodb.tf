@@ -181,6 +181,10 @@ resource "aws_dynamodb_table" "tenants" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-tenants"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # W-API Instances Table - enforces one-to-one mapping between instances and users
@@ -242,6 +246,10 @@ resource "aws_dynamodb_table" "wapi_instances" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-wapi-instances"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # User Feedback Table - stores binary feedback on message urgency
@@ -308,6 +316,10 @@ resource "aws_dynamodb_table" "feedback" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-feedback"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Interruption Statistics Table - aggregated statistics per sender/category/user
@@ -361,6 +373,10 @@ resource "aws_dynamodb_table" "interruption_stats" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-interruption-stats"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # CloudWatch Alarms for DynamoDB

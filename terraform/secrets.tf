@@ -146,6 +146,8 @@ resource "aws_lambda_function" "secret_rotation" {
   lifecycle {
     ignore_changes = [filename, source_code_hash]
   }
+
+  skip_destroy = true
 }
 
 # IAM Role for Secret Rotation Lambda

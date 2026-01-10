@@ -85,6 +85,10 @@ resource "aws_cloudwatch_log_group" "lambda_orchestrator" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-orchestrator-logs"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # CloudWatch Alarms for orchestrator
@@ -196,6 +200,10 @@ resource "aws_cloudwatch_log_group" "lambda_digest" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-digest-logs"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "aws_cloudwatch_metric_alarm" "lambda_digest_errors" {
@@ -286,6 +294,10 @@ resource "aws_cloudwatch_log_group" "lambda_feedback" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-feedback-logs"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Lambda permissions for API Gateway

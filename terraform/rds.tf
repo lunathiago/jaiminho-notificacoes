@@ -142,7 +142,8 @@ resource "aws_db_instance" "main" {
   lifecycle {
     ignore_changes = [
       final_snapshot_identifier,
-      password
+      password,
+      engine_version
     ]
   }
 
