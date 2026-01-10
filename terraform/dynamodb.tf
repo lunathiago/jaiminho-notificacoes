@@ -75,6 +75,10 @@ resource "aws_dynamodb_table" "messages" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-messages"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Digest History Table - stores generated digests
@@ -136,6 +140,10 @@ resource "aws_dynamodb_table" "digests" {
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-digests"
   })
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 # Tenant Configuration Table - stores tenant-specific settings
