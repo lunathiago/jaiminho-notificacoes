@@ -192,6 +192,16 @@ resource "aws_dynamodb_table" "wapi_instances" {
     type = "S"
   }
 
+  attribute {
+    name = "tenant_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "status"
+    type = "S"
+  }
+
   global_secondary_index {
     name            = "TenantIndex"
     hash_key        = "tenant_id"
