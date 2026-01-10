@@ -128,8 +128,7 @@ resource "aws_db_instance" "main" {
 
   # Security
   deletion_protection       = var.environment == "prod"
-  skip_final_snapshot       = true
-  skip_final_snapshot      = var.environment != "prod"
+  skip_final_snapshot       = var.environment != "prod"
   final_snapshot_identifier = var.environment == "prod" ? "${local.name_prefix}-final-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}" : null
   copy_tags_to_snapshot    = true
 
