@@ -18,7 +18,7 @@ resource "aws_db_subnet_group" "main" {
 # RDS Parameter Group for PostgreSQL
 resource "aws_db_parameter_group" "main" {
   name_prefix = "${local.name_prefix}-"
-  family      = "postgres15"
+  family      = "postgres16"
   description = "Custom parameter group for ${local.name_prefix}"
 
   # Performance tuning
