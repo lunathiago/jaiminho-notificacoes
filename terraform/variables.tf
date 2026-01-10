@@ -67,7 +67,7 @@ variable "db_max_allocated_storage" {
 variable "db_engine_version" {
   description = "Versão do PostgreSQL"
   type        = string
-  default     = "16.1"
+  default     = "16"
 }
 
 variable "db_backup_retention_period" {
